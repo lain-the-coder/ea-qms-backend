@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -11,6 +11,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/joho/godotenv"
 	"github.com/lain-the-coder/ea-qms-backend/internal/database"
+	"github.com/lain-the-coder/ea-qms-backend/internal/logging"
 	_ "github.com/lib/pq"
 )
 
@@ -20,6 +21,7 @@ type apiConfig struct {
 	secret   string
 	params   *argon2id.Params
 	rawDB    *sql.DB
+	logger   *slog.Logger
 }
 
 func (cfg *apiConfig) WelcomeHome(w http.ResponseWriter, r *http.Request) {
@@ -30,20 +32,22 @@ func (cfg *apiConfig) WelcomeHome(w http.ResponseWriter, r *http.Request) {
 		Company string `json:"company"`
 		Message string `json:"message"`
 	}
+	log := logging.LoggerFrom(r.Context())
 	reqBody := WelcomeRequest{}
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		log.Printf("Error decoding parameters: %s", err)
+		log.Error("failed to decode request body", "error", err)
 		// delegating error structuring to helper function
 		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
 	reqBody.Message = strings.TrimSpace(reqBody.Message)
 	if reqBody.Message == "" {
-		log.Printf("Message is blank")
+		log.Warn("message field was blank")
 		respondWithError(w, "Message cannot be blank", http.StatusBadRequest)
 		return
 	}
+	log.Info("welcome home hit", "company", "EA QMS")
 	resBody := WelcomeResponse{
 		Company: "EA QMS",
 		Message: "Welcome! I hope you enjoy this system!",
@@ -54,10 +58,20 @@ func (cfg *apiConfig) WelcomeHome(w http.ResponseWriter, r *http.Request) {
 func main() {
 	mux := http.NewServeMux()
 
-	// load .env file
-	err := godotenv.Load()
+	// build logger
+	logger, err := logging.NewLogger("logs")
 	if err != nil {
-		log.Fatal("error loading .env file")
+		// Standard log fallback since slog isn't ready if NewLogger fails
+		slog.Error("failed to initialize logger", "error", err)
+		os.Exit(1)
+	}
+	slog.SetDefault(logger)
+
+	// load .env file
+	err = godotenv.Load()
+	if err != nil {
+		logger.Error("error loading .env file", "error", err)
+		os.Exit(1)
 	}
 
 	// load config struct with env variables
@@ -69,11 +83,13 @@ func main() {
 	// db setup
 	rawDB, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("Database initialization failed (check driver registration or URL format): %v", err)
+		logger.Error("Database initialization failed (check driver registration or URL format)", "error", err)
+		os.Exit(1)
 	}
 	err = rawDB.Ping()
 	if err != nil {
-		log.Fatalf("Database connection failed (check network, credentials, or server status): %v", err)
+		logger.Error("Database connection failed (check network, credentials, or server status)", "error", err)
+		os.Exit(1)
 	}
 
 	db := database.New(rawDB)
@@ -84,13 +100,15 @@ func main() {
 		secret:   secret,
 		params:   argonParams,
 		rawDB:    rawDB,
+		logger:   logger,
 	}
 
 	// routes
-	mux.HandleFunc("POST /", cfg.WelcomeHome)
+	mux.Handle("POST /", cfg.middlewareLogging(http.HandlerFunc(cfg.WelcomeHome)))
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,
 	}
-	log.Fatal(server.ListenAndServe())
+	logger.Error("server failed", "error", server.ListenAndServe())
+	os.Exit(1)
 }
