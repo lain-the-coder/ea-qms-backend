@@ -83,6 +83,7 @@ func main() {
 
 	// routes
 	mux.Handle("POST /api/login", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
+	mux.Handle("GET /api/me", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,

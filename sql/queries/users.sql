@@ -11,3 +11,7 @@ RETURNING *;
 -- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE LOWER(email) = LOWER(sqlc.arg(email));
+
+-- name: GetUserByID :one
+SELECT * FROM users
+WHERE id = $1;
