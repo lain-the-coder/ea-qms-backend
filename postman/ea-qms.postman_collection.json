@@ -11,7 +11,7 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Login as Admin",
+          "name": "Login",
           "event": [
             {
               "listen": "test",
@@ -105,55 +105,7 @@
                 }
               ],
               "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"System Administrator\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"token\": \"eyJhbGciOiJIUzI1Ni...(truncated)\",\n    \"refresh_token\": \"0de35796...(truncated)\"\n}"
-            }
-          ]
-        },
-        {
-          "name": "Login as CC Owner",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "      const body = pm.response.json();\r",
-                  "      pm.environment.set(\"token\", body.token);\r",
-                  "      pm.environment.set(\"refresh_token\", body.refresh_token);\r",
-                  "      console.log(\"Logged in as \" + body.role);\r",
-                  "  }"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
             },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "login"
-              ]
-            }
-          },
-          "response": [
             {
               "name": "Login as CC Owner",
               "originalRequest": {
@@ -203,55 +155,7 @@
                 }
               ],
               "body": "{\n    \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"full_name\": \"Default CC Owner\",\n    \"email\": \"owner@eaqms.local\",\n    \"role\": \"CC Owner\",\n    \"token\": \"eyJhbGciOiJIUzI1Ni...(truncated)\",\n    \"refresh_token\": \"45cb61600854911...(truncated)\"\n}"
-            }
-          ]
-        },
-        {
-          "name": "Login — wrong password (401)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "      const body = pm.response.json();\r",
-                  "      pm.environment.set(\"token\", body.token);\r",
-                  "      pm.environment.set(\"refresh_token\", body.refresh_token);\r",
-                  "      console.log(\"Logged in as \" + body.role);\r",
-                  "  }"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
             },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"email\": \"admin@eaqms.local\",\r\n    \"password\": \"wrong\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "login"
-              ]
-            }
-          },
-          "response": [
             {
               "name": "Login — wrong password (401)",
               "originalRequest": {
@@ -295,55 +199,7 @@
               ],
               "cookie": [],
               "body": "{\n    \"error\": \"Incorrect email or password\"\n}"
-            }
-          ]
-        },
-        {
-          "name": "Login — unknown user (401)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "      const body = pm.response.json();\r",
-                  "      pm.environment.set(\"token\", body.token);\r",
-                  "      pm.environment.set(\"refresh_token\", body.refresh_token);\r",
-                  "      console.log(\"Logged in as \" + body.role);\r",
-                  "  }"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
             },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"email\": \"nobody@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "login"
-              ]
-            }
-          },
-          "response": [
             {
               "name": "Login — unknown user (401)",
               "originalRequest": {
@@ -394,7 +250,166 @@
     },
     {
       "name": "Users & Profile",
-      "item": []
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Login as Admin",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 22 Jul 2026 19:01:31 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "123"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"System Administrator\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\"\n}"
+            },
+            {
+              "name": "Login as CC Owner",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 22 Jul 2026 19:03:40 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "122"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"full_name\": \"Default CC Owner\",\n    \"email\": \"owner@eaqms.local\",\n    \"role\": \"CC Owner\"\n}"
+            },
+            {
+              "name": "Set token to garbage",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 22 Jul 2026 19:04:14 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            },
+            {
+              "name": "Auth = No Auth (no header)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "me"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 22 Jul 2026 19:05:11 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "Change Controls",
