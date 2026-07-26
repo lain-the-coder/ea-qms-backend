@@ -84,6 +84,8 @@ func main() {
 	// routes
 	mux.Handle("POST /api/login", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
 	mux.Handle("GET /api/me", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
+	mux.Handle("POST /api/refresh", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRefresh)))
+	mux.Handle("POST /api/revoke", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRevoke)))
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,

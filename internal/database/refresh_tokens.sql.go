@@ -41,3 +41,42 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	)
 	return i, err
 }
+
+const getRefreshToken = `-- name: GetRefreshToken :one
+SELECT token, user_id, created_on, updated_on, expires_at, revoked_at FROM refresh_tokens
+WHERE token = $1
+`
+
+func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshToken, token)
+	var i RefreshToken
+	err := row.Scan(
+		&i.Token,
+		&i.UserID,
+		&i.CreatedOn,
+		&i.UpdatedOn,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens SET revoked_at = NOW(), updated_on = NOW()
+WHERE token = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshToken, token)
+	return err
+}
+
+const touchRefreshToken = `-- name: TouchRefreshToken :exec
+UPDATE refresh_tokens SET updated_on = NOW()
+WHERE token = $1
+`
+
+func (q *Queries) TouchRefreshToken(ctx context.Context, token string) error {
+	_, err := q.db.ExecContext(ctx, touchRefreshToken, token)
+	return err
+}

@@ -16,9 +16,128 @@ import (
 
 // constants used for access token and refresh token expiry time respectively
 const (
-	accessTokenTTL  = 30 * time.Minute
-	refreshTokenTTL = 24 * time.Hour
+	accessTokenTTL          = 30 * time.Minute
+	refreshTokenTTL         = 24 * time.Hour
+	refreshInactivityWindow = 2 * time.Hour // for idle check via updated_on constraint during refresh touch
 )
+
+func (cfg *apiConfig) HandlerRefresh(w http.ResponseWriter, r *http.Request) {
+	type RefreshRequest struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	type RefreshResponse struct {
+		Token string `json:"token"`
+	}
+	reqBody := RefreshRequest{}
+	// decode request body
+	log := logging.LoggerFrom(r.Context())
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Error("refresh failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// request validation
+	reqBody.RefreshToken = strings.TrimSpace(reqBody.RefreshToken)
+	if reqBody.RefreshToken == "" {
+		log.Warn("refresh failed", "reason", "refresh token blank")
+		respondWithError(w, "Refresh token cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// get refresh token
+	refreshTokenRow, err := cfg.db.GetRefreshToken(r.Context(), reqBody.RefreshToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("refresh failed", "reason", "refresh token not found")
+			respondWithError(w, "Invalid refresh token", http.StatusUnauthorized)
+			return
+		}
+		log.Error("refresh failed", "reason", "refresh token lookup failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if refreshTokenRow.RevokedAt != nil {
+		log.Warn("refresh failed", "reason", "refresh token revoked")
+		respondWithError(w, "Invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+	if time.Now().UTC().After(refreshTokenRow.ExpiresAt) {
+		log.Warn("refresh failed", "reason", "refresh token time limit expired")
+		respondWithError(w, "Session expired", http.StatusUnauthorized)
+		return
+	}
+	if time.Since(refreshTokenRow.UpdatedOn) > refreshInactivityWindow {
+		log.Warn("refresh failed", "reason", "inactivity timeout")
+		respondWithError(w, "Session expired", http.StatusUnauthorized)
+		return
+	}
+	// get user details
+	user, err := cfg.db.GetUserByID(r.Context(), refreshTokenRow.UserID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("refresh failed", "reason", "user not found", "user_id", refreshTokenRow.UserID)
+			respondWithError(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		log.Error("refresh failed", "reason", "user lookup failed", "user_id", refreshTokenRow.UserID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// active account check
+	if !user.IsActive {
+		log.Warn("refresh failed", "reason", "account deactivated", "user_id", user.ID)
+		respondWithError(w, "Account is deactivated", http.StatusUnauthorized)
+		return
+	}
+	err = cfg.db.TouchRefreshToken(r.Context(), reqBody.RefreshToken)
+	if err != nil {
+		log.Error("refresh failed", "reason", "refresh token touch failed", "user_id", user.ID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// create jwt token
+	jwtToken, err := auth.MakeJWT(user.ID, cfg.secret, accessTokenTTL)
+	if err != nil {
+		log.Error("refresh failed", "reason", "jwt generation failed", "user_id", user.ID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	log.Info("refresh successful", "user_id", user.ID)
+	resBody := RefreshResponse{
+		Token: jwtToken,
+	}
+	respondWithJSON(w, http.StatusOK, resBody)
+}
+
+func (cfg *apiConfig) HandlerRevoke(w http.ResponseWriter, r *http.Request) {
+	type RefreshRequest struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	reqBody := RefreshRequest{}
+	// decode request body
+	log := logging.LoggerFrom(r.Context())
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Error("revoke failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// request validation
+	reqBody.RefreshToken = strings.TrimSpace(reqBody.RefreshToken)
+	if reqBody.RefreshToken == "" {
+		log.Warn("revoke failed", "reason", "refresh token blank")
+		respondWithError(w, "Refresh token cannot be blank", http.StatusBadRequest)
+		return
+	}
+	err = cfg.db.RevokeRefreshToken(r.Context(), reqBody.RefreshToken)
+	if err != nil {
+		log.Error("revoke failed", "reason", "revoking operation in db failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	log.Info("revoke successful")
+	w.WriteHeader(http.StatusNoContent)
+}
 
 func (cfg *apiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 	// request/response structs
