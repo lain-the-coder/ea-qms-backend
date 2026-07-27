@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 	"unicode"
 )
 
@@ -14,6 +16,8 @@ const (
 	passwordMinUpper   = 1
 	passwordMinDigit   = 1
 	passwordMinSpecial = 1
+	defaultPageLimit   = 50
+	maxPageLimit       = 200
 )
 
 // declaring error response struct globally for free use
@@ -77,4 +81,33 @@ func validatePassword(password string) []string {
 		problems = append(problems, fmt.Sprintf("at least %d special character", passwordMinSpecial))
 	}
 	return problems
+}
+
+func parsePagination(q url.Values) (int32, int32, error) {
+	// default limit is 50
+	limit := int32(defaultPageLimit)
+	if limitStr := q.Get("limit"); limitStr != "" {
+		// Parse specifically as a 32-bit integer
+		l, err := strconv.ParseInt(limitStr, 10, 32)
+		if err != nil || l < 1 {
+			return 0, 0, fmt.Errorf("invalid limit: must be a positive integer")
+		}
+		if l > maxPageLimit {
+			l = maxPageLimit
+		}
+		limit = int32(l)
+	}
+
+	// default offset is 0
+	offset := int32(0)
+	if offsetStr := q.Get("offset"); offsetStr != "" {
+		// Parse specifically as a 32-bit integer
+		o, err := strconv.ParseInt(offsetStr, 10, 32)
+		if err != nil || o < 0 {
+			return 0, 0, fmt.Errorf("invalid offset: must be a non-negative integer")
+		}
+		offset = int32(o)
+	}
+
+	return limit, offset, nil
 }

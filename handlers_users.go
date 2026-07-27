@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,4 +156,76 @@ func (cfg *apiConfig) HandlerCreateUser(w http.ResponseWriter, r *http.Request, 
 		CreatedOn: newUser.CreatedOn,
 	}
 	respondWithJSON(w, http.StatusCreated, resBody)
+}
+
+func (cfg *apiConfig) HandlerListUsers(w http.ResponseWriter, r *http.Request, admin database.User) {
+	type UserResponse struct {
+		ID        uuid.UUID `json:"id"`
+		FullName  string    `json:"full_name"`
+		Email     string    `json:"email"`
+		Role      string    `json:"role"`
+		IsActive  bool      `json:"is_active"`
+		CreatedOn time.Time `json:"created_on"`
+	}
+
+	type ListUsersResponse struct {
+		Users  []UserResponse `json:"users"`
+		Total  int64          `json:"total"`
+		Limit  int32          `json:"limit"`
+		Offset int32          `json:"offset"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	q := r.URL.Query()
+	limit, offset, err := parsePagination(q)
+	if err != nil {
+		log.Warn("user retrieval failed", "reason", "invalid pagination", "error", err,
+			"limit_param", q.Get("limit"), "offset_param", q.Get("offset"))
+		respondWithError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var isActive *bool
+	activeStr := q.Get("active")
+	if activeStr != "" {
+		b, err := strconv.ParseBool(activeStr)
+		if err != nil {
+			log.Warn("user retrieval failed", "reason", "invalid active parameter value", "active", activeStr)
+			respondWithError(w, "Invalid Query Parameter for Active", http.StatusBadRequest)
+			return
+		}
+		isActive = &b
+	}
+	users, err := cfg.db.ListUsers(r.Context(), database.ListUsersParams{
+		Limit:    limit,
+		Offset:   offset,
+		IsActive: isActive,
+	})
+	if err != nil {
+		log.Error("user retrieval failed", "reason", "db users list retrieval failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	total, err := cfg.db.CountUsers(r.Context(), isActive)
+	if err != nil {
+		log.Error("user retrieval failed", "reason", "db user count failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	userResponses := make([]UserResponse, 0, len(users))
+	for _, u := range users {
+		userResponses = append(userResponses, UserResponse{
+			ID:        u.ID,
+			FullName:  u.FullName,
+			Email:     u.Email,
+			Role:      u.Role,
+			IsActive:  u.IsActive,
+			CreatedOn: u.CreatedOn,
+		})
+	}
+	log.Info("users listed", "count", len(users), "total", total, "limit", limit, "offset", offset)
+	respondWithJSON(w, http.StatusOK, ListUsersResponse{
+		Users:  userResponses,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }

@@ -11,6 +11,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+WHERE ($1::boolean IS NULL OR is_active = $1)
+`
+
+func (q *Queries) CountUsers(ctx context.Context, isActive *bool) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers, isActive)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (full_name, email, hashed_password, role)
 VALUES (
@@ -90,4 +102,49 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.UpdatedOn,
 	)
 	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, full_name, email, hashed_password, role, is_active, created_on, updated_on FROM users
+WHERE ($3::boolean IS NULL OR is_active = $3)
+ORDER BY full_name
+LIMIT $1 OFFSET $2
+`
+
+type ListUsersParams struct {
+	Limit    int32
+	Offset   int32
+	IsActive *bool
+}
+
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset, arg.IsActive)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Email,
+			&i.HashedPassword,
+			&i.Role,
+			&i.IsActive,
+			&i.CreatedOn,
+			&i.UpdatedOn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
