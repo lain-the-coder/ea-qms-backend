@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 11 — refresh + revoke · **4 of 22 endpoints done · auth spine complete**
-- **Next task:** checkpoint 12 — user management (endpoints 5–9), incl. the `FOR UPDATE` transaction
+- **Last checkpoint:** 12 — `POST /api/users` · **5 of 22 endpoints done**
+- **Next task:** checkpoint 13 — `GET /api/users` (endpoint 6, Admin, paginated)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -23,7 +23,7 @@ guardrail docs carry the substance and are always attached.
 | `internal/auth` (argon2id)        | ✅ Complete — hashing + tests + app wiring        |
 | `cmd/seed`                        | ✅ Complete — 4 users seeded and verified         |
 | Structured logging (slog+context) | ✅ Complete — request IDs proven end to end       |
-| API implementation (22 endpoints) | 🔵 **In progress — 4 / 22** (auth group complete) |
+| API implementation (22 endpoints) | 🔵 **In progress — 5 / 22**                       |
 
 ---
 
@@ -476,25 +476,93 @@ tokens, so writing it to `logs/app.log` would be equivalent to logging a passwor
 
 ---
 
+### ✅ Checkpoint 12 — `POST /api/users` (endpoint 5 of 22)
+
+First **Admin-only** endpoint and the **first database transaction**.
+
+**`middleware.go` — `requireRole(role string, next authedHandler) authedHandler`.**
+`authedHandler` in _and_ out (three params both sides), which is what lets it nest **inside**
+`middlewareAuth`; and because the return type is already a func type, **no
+`http.HandlerFunc` conversion** — unlike the other two middlewares. It loads nothing, just
+reads `user.Role` from the user `middlewareAuth` already verified. **Registration
+variation 3** appears here:
+`middlewareLogging(middlewareAuth(requireRole(roleAdmin, handler)))`.
+
+**`constants.go`** — role, audit entity-type and audit action-type constants, each group
+commented with the CHECK constraint it mirrors. Plain string constants, not a defined type:
+sqlc emits `Role string`, so a `type Role string` would need a conversion at every call site
+for a guarantee `ck_users_role` already provides (Blueprint rule 13). All nine action types
+defined up front — unused constants compile fine, and transcribing from the constraint once
+beats doing it nine times.
+
+**`sql/queries/audit_logs.sql` — `InsertAuditLog :exec`** (DB §8.3 verbatim). `created_on`
+is an **explicit parameter**, not the column default, so multi-row actions can share one
+timestamp (BR-8.7.5). Called with `cfg.db` when standalone, `qtx` inside a transaction.
+
+**`handlers_users.go` — `HandlerCreateUser`:**
+
+- Role validated against the constants **before** the DB sees it — an invalid role is then a
+  clean 400 rather than a CHECK violation surfacing as a 500. Validate what you can name;
+  let the constraint be the backstop.
+- **Password policy** (decision #17) with **collect-all** reporting — every unmet rule in one
+  message, the same shape BR-8.2.6 requires for the CC transitions.
+- **Passwords are never trimmed.** `HandlerLogin` doesn't trim, so trimming at creation would
+  hash a different string than login sends — a password with a leading space would create an
+  account that can never sign in. Found by comparing the two handlers.
+- First use of `cfg.params` (argon2id hashing).
+- **The transaction** (decision #18): `BeginTx` → `defer tx.Rollback()` → `qtx` → `Commit`,
+  wrapping the user insert _and_ the `UserAdded` audit row.
+- **Duplicate email → `*pq.Error` code `23505` → 409**, caught _inside_ the transaction so
+  the return rolls back cleanly. **No pre-check `SELECT`** — that would be a TOCTOU race of
+  the same shape as BR-8.4.11; the unique index is the source of truth (Blueprint §11).
+- The handler's user argument is named **`admin`** — in the `authedHandler` pattern the user
+  is always _who is acting_, never _who is acted upon_. An early draft returned the Admin's
+  own record as the 201 body; renaming the variable makes that class of bug visible.
+
+| Check                                                              | Verified |
+| ------------------------------------------------------------------ | -------- |
+| 201 with the created user, `is_active: true`                       | ✅       |
+| Duplicate email → 409                                              | ✅       |
+| `JANE@EAQMS.LOCAL` → 409 — `LOWER(email)` uniqueness holds         | ✅       |
+| `"weak"` → 400 listing **4** unmet rules; `"alllowercase"` → **3** | ✅       |
+| Invalid role → 400; blank name → 400                               | ✅       |
+| CC Owner → **403** `insufficient role`; no token → **401**         | ✅       |
+| **`audit_logs` holds exactly one row after nine requests**         | ✅       |
+
+**Lesson — the transaction proved itself.** Two 409s and five 400s produced _zero_ audit rows
+and zero partial users: the failures returned inside the transaction, `defer tx.Rollback()`
+fired, nothing survived. That is atomicity observed rather than assumed. The two rules to
+carry into T2: **`defer tx.Rollback()` on the line after `BeginTx`** (it is a no-op after a
+successful commit, returning `sql.ErrTxDone`), and **`qtx` for every call inside** — a stray
+`cfg.db` would run on a different connection, commit immediately, and silently survive the
+rollback.
+
+**Also learned:** 401 and 403 answer different questions — _"who are you?"_ vs _"I know who
+you are, and you may not do this."_ Both appear in the logs with distinct messages
+(`auth failed` vs `authorization failed`), and the 403 line carries `user_id` for free from
+`middlewareAuth`'s enrichment.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 12 — user management (endpoints 5–9)
+### ⬜ Checkpoint 13 — `GET /api/users` (endpoint 6, Admin)
 
-All **Admin-only** except #9 — registration variation 3
-(`middlewareLogging(middlewareAuth(requireRole("Admin", handler)))`), so this is where
-`requireRole` gets written.
+Admin-only, variation 3. Paginated (BRD §9.5.4 / §13 mention pagination for long user lists).
 
-| #   | Endpoint                     | Note                                                                                                                                                                                                                                                                                                                     |
-| --- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 5   | `POST /api/users`            | create; **this is where `cfg.params` is finally used** — hashing a new password                                                                                                                                                                                                                                          |
-| 6   | `GET /api/users`             | list                                                                                                                                                                                                                                                                                                                     |
-| 7   | `PUT /api/users/{id}`        | **the big one** — the BR-8.4.11 TOCTOU fix: one transaction, `SELECT ... FOR UPDATE` on the user row, then the active-CC count, then update. Blocked role change → **409 listing the blocking CC-IDs**, but the **name change in the same request still saves**, audited separately (`UserRoleChanged` vs `UserUpdated`) |
-| 8   | `PUT /api/users/{id}/active` | deactivate **and** reactivate; idempotent                                                                                                                                                                                                                                                                                |
-| 9   | `GET /api/users/approvers`   | authenticated (not Admin-only) — the approver dropdown; uses `idx_users_role_active`                                                                                                                                                                                                                                     |
+**Three decisions needed before writing it**, none specified by any guardrail doc:
+pagination shape (`?limit=&offset=` vs `?page=&per_page=`) · default and maximum page size ·
+whether inactive users appear in the list (an Admin managing users almost certainly needs to
+see deactivated accounts in order to reactivate them). Also: return a `total` count for a UI
+pager, which costs a second `COUNT(*)` query, or just the array?
 
-**#7 is the first transaction in the project** and is deliberately placed here — the
-`BeginTx` / `defer Rollback` / `qtx` pattern (Blueprint §9, rules 6–7) learned on a small
-handler before T2 needs it. It is also the first audit-row writes.
+**Remaining in this group, one checkpoint each:** #9 `GET /api/approvers` (authenticated,
+_not_ Admin-only — feeds the Assign Approver dropdown, uses `idx_users_role_active`) · #8
+`PUT /api/users/{userID}/active` (first **path parameter**, `r.PathValue`; deactivate _and_
+reactivate) · **#7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix, `SELECT … FOR
+UPDATE` on the user row + active-CC count, blocked role change → **409 listing the blocking
+CC-IDs** while the **name change in the same request still commits**. That last one gets a
+checkpoint entirely to itself.
 
 **Then, in API Endpoint Plan order:** CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
@@ -507,12 +575,12 @@ dashboard → signatures.
 Session decisions that now contradict a guardrail doc. Until amended, a future session may
 "correct" a deliberate choice back.
 
-| Doc                    | Change needed                                                                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `API_ENDPOINT_PLAN.md` | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                      |
-| `CONTEXT_HANDOFF.md`   | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                     |
-| BRD                    | Add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
-| DB Design doc          | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                             |
+| Doc                    | Change needed                                                                                                                                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `API_ENDPOINT_PLAN.md` | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                         |
+| `CONTEXT_HANDOFF.md`   | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                        |
+| BRD                    | Add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
+| DB Design doc          | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                |
 
 ---
 
@@ -534,6 +602,8 @@ Settled in working sessions and binding. They exist nowhere else.
 | 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` requires `pg_catalog.time`.** Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                                                                                                                                                                                     |
 | 11  | **Password hashing uses `github.com/alexedwards/argon2id`, not raw `golang.org/x/crypto/argon2`**                                                                                                                                                                                                          | Blueprint §2 names the algorithm (argon2id), not a package, so the choice was open. The library already does PHC-string encoding, `crypto/rand` salting, parameter round-tripping and constant-time comparison — a reviewed implementation rather than hand-rolled crypto plumbing. Params are set **explicitly** (not `DefaultParams` in app code) so a library-default change can't silently alter hashing strength, and so the values are auditable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 12  | **Data delivered to handlers by two different mechanisms, chosen by failure mode: request logger via `context`, authenticated user via explicit argument**                                                                                                                                                 | Fills the Blueprint §15 logging gap. The rule: _match the delivery mechanism to what happens when the thing is missing._ A missing logger is harmless → `context` value with a `slog.Default()` fallback (`LoggerFrom`). A missing authenticated user is a security hole → explicit third argument on an `authedHandler` type, so forgetting auth is a **compile error**, not a runtime surprise — the compiler becomes an auth control, which matters for a regulated system. Not inconsistency: same principle, opposite stakes. (Considered and rejected: context for both, for surface consistency — it would trade a compile-time guarantee for a per-route discipline across 22 routes.) Logging is minimal per §0/§15: request ID + start/finish + errors; runtime level-filtering deferred (slog provides the levels regardless)                                                                                                                                                                                                                                |
+| 17  | **Password policy: minimum 8 characters, with at least 1 lowercase, 1 uppercase, 1 digit and 1 special character.** Enforced in `validatePassword` (`helpers.go`) with **collect-all** reporting                                                                                                           | **No guardrail doc specifies a password policy** — this is a genuine spec gap being filled, and needs adding to the BRD (see pending-amendments). Without it `"a"` would have been accepted. Collect-all (every unmet rule in one message) rather than fail-first, matching BR-8.2.6's pattern for transition validation, so a user fixes everything in one pass. The log records only the _count_ of unmet rules, never which ones — knowing "had lowercase, no digits" is a weak hint about a password that may be retried with a small variation. An earlier draft used 4-of-each, which implies a 16-character minimum; relaxed to 1-of-each as the conventional baseline. **Passwords are never trimmed** anywhere — leading/trailing spaces are legitimate characters, and trimming at creation but not at login would silently create unusable accounts                                                                                                                                                                                                          |
+| 18  | **Writes and their audit rows are atomic — one transaction, all or nothing**                                                                                                                                                                                                                               | BR-8.4.9 requires all user-management actions to be logged. If the audit insert can fail while the write succeeds, the system can hold a change with no audit trail — unacceptable in a GxP context, where an unaudited change effectively did not happen. So `HandlerCreateUser` wraps the user insert and the `UserAdded` row in one transaction, introducing the `BeginTx`/`qtx` pattern earlier than the build order planned. Same pattern the transitions need for BR-8.8.6 (state change + signature + audit as one unit), so the rehearsal is on a small handler rather than T2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 15  | **`refreshInactivityWindow = 2 hours`, deliberately decoupled from the 30-minute access token.** This **overrides** `API_ENDPOINT_PLAN.md` endpoint 2, which specifies 30 minutes — the doc must be amended                                                                                                | `updated_on` is set at login and at every refresh, and a JWT is minted at exactly those same moments, so **JWT expiry ≡ `updated_on` + 30 min**. With both windows at 30 minutes the idle check fires at precisely the instant the JWT dies, meaning refresh can only ever succeed while the caller still holds a _valid_ JWT — the sliding window adds nothing beyond the JWT's own expiry, and session continuity rests entirely on the frontend timer never missing a beat. At 2 hours the two clocks do different jobs: the 30-min JWT bounds **credential exposure**, the 2-hour window bounds **unattended session length**, and a client that misses a refresh has real room to recover (making the 401-interceptor pattern a genuine fallback rather than theatre). The security cost is small because the idle window is the weakest of four controls — the short JWT limits exposure, `expires_at` caps the session at 24 h absolutely, and `middlewareAuth` re-checks `is_active` on every request. **Changes one constant; no schema change, no migration** |
 | 16  | **Refresh/revoke contract:** refresh token travels in the **JSON body**, not the `Authorization` header · revoke is **idempotent** (204 regardless) · `RevokeRefreshToken` carries `AND revoked_at IS NULL` · `revoked_at` is **not** set when a token merely expires · refresh tokens are **not rotated** | _Body not header:_ `Authorization` conventionally carries the _access_ token; one header meaning two different things per endpoint is ambiguous. _Idempotent:_ logout must never fail, and identical responses for "token existed" and "didn't" avoid an information leak (same reasoning as login's byte-identical 401s). _`revoked_at IS NULL` clause:_ a repeat revoke then preserves the **original** logout timestamp instead of overwriting it — better audit fidelity. _Not set on expiry:_ `revoked_at` records a deliberate **act** (logout); expiry is the passage of time, and conflating them would lose that distinction while adding a write on a rejection path for no behavioural change. _No rotation:_ real practice, but unspecified, complicates the client, and outside documented scope                                                                                                                                                                                                                                                           |
 | 14  | **API testing via a committed Postman collection; no swagger annotations in code**                                                                                                                                                                                                                         | `swaggo/swag` parses the AST and **cannot resolve types declared inside function bodies** — adopting it would have forced every request/response struct out of its handler across all 22 endpoints, plus ~10 annotation lines each and a `swag init` step that silently serves stale docs when forgotten. Neither swagger nor OpenAPI appears in any guardrail doc, so this would have been a second consciously-added scope item after logging. Postman gives the practical benefit (repeatable requests, auto-captured token, saved examples) at a fraction of the cost, and **exports to OpenAPI 3.0 later** if a formal spec is ever required — good request names and saved examples are what make that export usable, so both are done as we go. Swagger UI can render such a spec externally without any code change                                                                                                                                                                                                                                             |
