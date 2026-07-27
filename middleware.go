@@ -78,3 +78,15 @@ func (cfg *apiConfig) middlewareAuth(next authedHandler) http.Handler {
 		next(w, r, user)
 	})
 }
+
+func (cfg *apiConfig) requireRole(role string, next authedHandler) authedHandler {
+	return func(w http.ResponseWriter, r *http.Request, user database.User) {
+		log := logging.LoggerFrom(r.Context())
+		if user.Role != role {
+			log.Warn("authorization failed", "reason", "insufficient role", "required", role, "actual", user.Role)
+			respondWithError(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r, user)
+	}
+}
