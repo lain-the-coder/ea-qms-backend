@@ -1024,6 +1024,512 @@
               "body": "{\n    \"error\": \"Unauthorized\"\n}"
             }
           ]
+        },
+        {
+          "name": "User Retrieval",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "No Query Params",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:29:32 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "979"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [\n        {\n            \"id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n            \"full_name\": \"Default Approver\",\n            \"email\": \"approver@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.477855+04:00\"\n        },\n        {\n            \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"full_name\": \"Default CC Owner\",\n            \"email\": \"owner@eaqms.local\",\n            \"role\": \"CC Owner\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.476807+04:00\"\n        },\n        {\n            \"id\": \"317df0f7-cc8a-415e-9ca7-7cf42c5fb666\",\n            \"full_name\": \"Default Viewer\",\n            \"email\": \"viewer@eaqms.local\",\n            \"role\": \"Viewer\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.478512+04:00\"\n        },\n        {\n            \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n            \"full_name\": \"Jane Approver\",\n            \"email\": \"jane@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-27T14:21:40.90311+04:00\"\n        },\n        {\n            \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n            \"full_name\": \"System Administrator\",\n            \"email\": \"admin@eaqms.local\",\n            \"role\": \"Admin\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.470119+04:00\"\n        }\n    ],\n    \"total\": 5,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "Limit 2",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=2",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "2"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:30:24 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "421"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [\n        {\n            \"id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n            \"full_name\": \"Default Approver\",\n            \"email\": \"approver@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.477855+04:00\"\n        },\n        {\n            \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"full_name\": \"Default CC Owner\",\n            \"email\": \"owner@eaqms.local\",\n            \"role\": \"CC Owner\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.476807+04:00\"\n        }\n    ],\n    \"total\": 5,\n    \"limit\": 2,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "Limit 2 & Offset 2",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=2&offset=2",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "2"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "2"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:31:22 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "410"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [\n        {\n            \"id\": \"317df0f7-cc8a-415e-9ca7-7cf42c5fb666\",\n            \"full_name\": \"Default Viewer\",\n            \"email\": \"viewer@eaqms.local\",\n            \"role\": \"Viewer\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.478512+04:00\"\n        },\n        {\n            \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n            \"full_name\": \"Jane Approver\",\n            \"email\": \"jane@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-27T14:21:40.90311+04:00\"\n        }\n    ],\n    \"total\": 5,\n    \"limit\": 2,\n    \"offset\": 2\n}"
+            },
+            {
+              "name": "[]",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=2&offset=99",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "2"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "99"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:31:56 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "44"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [],\n    \"total\": 5,\n    \"limit\": 2,\n    \"offset\": 99\n}"
+            },
+            {
+              "name": "invalid limit 1",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=abc",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "abc"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:32:59 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "53"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"invalid limit: must be a positive integer\"\n}"
+            },
+            {
+              "name": "invalid limit 2",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=0",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "0"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:33:58 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "53"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"invalid limit: must be a positive integer\"\n}"
+            },
+            {
+              "name": "invalid limit 3",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=-1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "-1"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:34:27 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "53"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"invalid limit: must be a positive integer\"\n}"
+            },
+            {
+              "name": "Capped",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?limit=999999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "999999"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:34:55 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "980"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [\n        {\n            \"id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n            \"full_name\": \"Default Approver\",\n            \"email\": \"approver@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.477855+04:00\"\n        },\n        {\n            \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"full_name\": \"Default CC Owner\",\n            \"email\": \"owner@eaqms.local\",\n            \"role\": \"CC Owner\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.476807+04:00\"\n        },\n        {\n            \"id\": \"317df0f7-cc8a-415e-9ca7-7cf42c5fb666\",\n            \"full_name\": \"Default Viewer\",\n            \"email\": \"viewer@eaqms.local\",\n            \"role\": \"Viewer\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.478512+04:00\"\n        },\n        {\n            \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n            \"full_name\": \"Jane Approver\",\n            \"email\": \"jane@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-27T14:21:40.90311+04:00\"\n        },\n        {\n            \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n            \"full_name\": \"System Administrator\",\n            \"email\": \"admin@eaqms.local\",\n            \"role\": \"Admin\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.470119+04:00\"\n        }\n    ],\n    \"total\": 5,\n    \"limit\": 200,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "Active true",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?active=true",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "active",
+                      "value": "true"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:35:30 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "979"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [\n        {\n            \"id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n            \"full_name\": \"Default Approver\",\n            \"email\": \"approver@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.477855+04:00\"\n        },\n        {\n            \"id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"full_name\": \"Default CC Owner\",\n            \"email\": \"owner@eaqms.local\",\n            \"role\": \"CC Owner\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.476807+04:00\"\n        },\n        {\n            \"id\": \"317df0f7-cc8a-415e-9ca7-7cf42c5fb666\",\n            \"full_name\": \"Default Viewer\",\n            \"email\": \"viewer@eaqms.local\",\n            \"role\": \"Viewer\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.478512+04:00\"\n        },\n        {\n            \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n            \"full_name\": \"Jane Approver\",\n            \"email\": \"jane@eaqms.local\",\n            \"role\": \"Approver\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-27T14:21:40.90311+04:00\"\n        },\n        {\n            \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n            \"full_name\": \"System Administrator\",\n            \"email\": \"admin@eaqms.local\",\n            \"role\": \"Admin\",\n            \"is_active\": true,\n            \"created_on\": \"2026-07-20T20:39:17.470119+04:00\"\n        }\n    ],\n    \"total\": 5,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "Active false",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?active=false",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "active",
+                      "value": "false"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:36:00 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "44"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"users\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "Active maybe",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users?active=maybe",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "active",
+                      "value": "maybe"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:36:30 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "46"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Query Parameter for Active\"\n}"
+            },
+            {
+              "name": "Forbidden",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 14:38:08 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Forbidden\"\n}"
+            }
+          ]
         }
       ]
     },
