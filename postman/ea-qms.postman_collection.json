@@ -601,6 +601,429 @@
               "body": "{\n    \"error\": \"Unauthorized\"\n}"
             }
           ]
+        },
+        {
+          "name": "User Creation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"jane@eaqms.local\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "User Creation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"jane@eaqms.local\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:21:40 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "182"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Approver\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": true,\n    \"created_on\": \"2026-07-27T14:21:40.90311+04:00\"\n}"
+            },
+            {
+              "name": "Duplicate Email Check",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"jane@eaqms.local\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:22:34 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "49"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"A user with that email already exists\"\n}"
+            },
+            {
+              "name": "Lowercase Email Check",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"JANE@EAQMS.LOCAL\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:23:09 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "49"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"A user with that email already exists\"\n}"
+            },
+            {
+              "name": "Weak Password - 1",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"JANE@EAQMS.LOCAL\",\r\n    \"password\": \"weak\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:24:18 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "132"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Password must contain at least 8 characters, at least 1 uppercase letter, at least 1 digit, at least 1 special character\"\n}"
+            },
+            {
+              "name": "Weak Password - 2",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"JANE@EAQMS.LOCAL\",\r\n    \"password\": \"alllowercase\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:24:54 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "109"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Password must contain at least 1 uppercase letter, at least 1 digit, at least 1 special character\"\n}"
+            },
+            {
+              "name": "Invalid Role",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"JANE@EAQMS.LOCAL\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Manager\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:31:25 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Role\"\n}"
+            },
+            {
+              "name": "Full Name Validation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"   \",\r\n    \"email\": \"JANE@EAQMS.LOCAL\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Manager\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:32:09 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "37"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Full Name cannot be blank\"\n}"
+            },
+            {
+              "name": "Unauthorized",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"jane1@eaqms.local\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:33:46 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Forbidden\"\n}"
+            },
+            {
+              "name": "Unauthenticated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Approver\",\r\n    \"email\": \"jane1@eaqms.local\",\r\n    \"password\": \"Passw0rd!\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 27 Jul 2026 10:34:46 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            }
+          ]
         }
       ]
     },
