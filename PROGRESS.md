@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 12 — `POST /api/users` · **5 of 22 endpoints done**
-- **Next task:** checkpoint 13 — `GET /api/users` (endpoint 6, Admin, paginated)
+- **Last checkpoint:** 13 — `GET /api/users` · **6 of 22 endpoints done**
+- **Next task:** checkpoint 14 — `GET /api/approvers` (endpoint 9)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -23,7 +23,7 @@ guardrail docs carry the substance and are always attached.
 | `internal/auth` (argon2id)        | ✅ Complete — hashing + tests + app wiring        |
 | `cmd/seed`                        | ✅ Complete — 4 users seeded and verified         |
 | Structured logging (slog+context) | ✅ Complete — request IDs proven end to end       |
-| API implementation (22 endpoints) | 🔵 **In progress — 5 / 22**                       |
+| API implementation (22 endpoints) | 🔵 **In progress — 6 / 22**                       |
 
 ---
 
@@ -544,25 +544,99 @@ you are, and you may not do this."_ Both appear in the logs with distinct messag
 
 ---
 
+### ✅ Checkpoint 13 — `GET /api/users` (endpoint 6 of 22)
+
+Admin-only, variation 3. Paginated and filterable.
+
+**`sql/queries/users.sql` — `ListUsers :many` / `CountUsers :one`**, both carrying the same
+optional filter:
+
+```sql
+WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_active'))
+ORDER BY full_name
+LIMIT $1 OFFSET $2
+```
+
+- **`sqlc.narg`** ("nullable named argument") generates a **pointer** parameter rather than a
+  value, so `nil` / `&true` / `&false` make **one query serve three cases**. The
+  `IS NULL OR` construction is the standard optional-filter idiom — when the parameter is
+  null the condition short-circuits to true and the filter disappears. The `::boolean` cast
+  is needed because Postgres can't infer the type from `IS NULL` alone. **This is the pattern
+  that saves endpoint 11** (`GET /api/changecontrols`, four optional filters — otherwise
+  sixteen hand-written query permutations).
+- **Both queries must carry the identical `WHERE`**, or `total` won't match the page.
+- **`ORDER BY` is mandatory, not cosmetic.** Without a deterministic sort Postgres may return
+  rows in a different order between calls, so page 2 could repeat or skip rows from page 1.
+- sqlc happily mixed positional `$1/$2` with the named `narg`; parameter order in the
+  generated struct is `Limit, Offset, IsActive` — not the order the SQL suggests, so read
+  the generated struct rather than guessing.
+
+**`sqlc.yaml`** — sixth override added: **`pg_catalog.bool` → `*bool`** (bare `bool` did not
+take). No nullable boolean _column_ exists in the schema, so this only surfaced once a
+nullable boolean _parameter_ appeared.
+
+**`helpers.go` — `parsePagination(url.Values) (limit, offset int32, err error)`**
+
+- defaults 50 / 0, maximum 200
+- an oversized limit is **clamped, not rejected** — asking for too much should return the
+  maximum, not fail
+- `strconv.ParseInt(s, 10, 32)` rather than `Atoi`, so an out-of-range value is a clean 400
+  instead of silently wrapping negative during the `int32` conversion
+- the cap matters: without it `?limit=999999` is a free way to make the server serialize
+  every row into a single response
+
+**`handlers_users.go` — `HandlerListUsers`**
+
+- `?active=true|false` → `*bool` via `strconv.ParseBool`; absent leaves it nil
+- **`make([]UserResponse, 0, len(users))`** — a nil slice marshals to `null`, not `[]`, which
+  breaks a frontend calling `.map()`. Pre-allocating with length 0 guarantees `[]`
+- rule 3 applied over a **slice** this time, so `hashed_password` never reaches the JSON
+- validation errors are returned **verbatim** to the client, so they learn _which_ parameter
+  is wrong — a deliberate exception to rule 4 ("log the real error, return a generic one"),
+  which exists to protect internal details, not to withhold input-validation feedback
+
+| Check                                                              | Verified |
+| ------------------------------------------------------------------ | -------- |
+| Default page: 5 users, `total: 5`, `limit: 50`                     | ✅       |
+| `?limit=2` then `?limit=2&offset=2` — next page, no overlap        | ✅       |
+| `?limit=2&offset=99` → `"users": []` (**not `null`**), `total: 5`  | ✅       |
+| `?limit=abc` / `?limit=0` / `?limit=-1` → 400 naming the parameter | ✅       |
+| `?limit=999999` → clamped, response reports `limit: 200`           | ✅       |
+| `?active=true` → 5 / `?active=false` → `[]` with **`total: 0`**    | ✅       |
+| `?active=maybe` → 400 · CC Owner → 403                             | ✅       |
+| No `hashed_password` in any response                               | ✅       |
+
+**Lesson.** `?active=false` returning `total: 0` is the check that matters — it proves
+`CountUsers` applies the _same_ filter as `ListUsers`. Had `total` come back `5`, every pager
+in the UI would silently show the wrong page count.
+
+**Noted, not acted on:** three handlers now declare a user-shaped response struct (login,
+`/me`, list). That is §0's threshold for extracting a shared `userResponse` + mapper — but
+the three differ (login carries tokens, list carries `is_active`/`created_on`), so they stay
+separate for now. Revisit if a fourth appears.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 13 — `GET /api/users` (endpoint 6, Admin)
+### ⬜ Checkpoint 14 — `GET /api/approvers` (endpoint 9)
 
-Admin-only, variation 3. Paginated (BRD §9.5.4 / §13 mention pagination for long user lists).
+**Authenticated, not Admin-only** — registration **variation 2**. Any logged-in user needs it
+to populate the Assign Approver dropdown (BRD field 35), so `requireRole` must _not_ wrap it.
 
-**Three decisions needed before writing it**, none specified by any guardrail doc:
-pagination shape (`?limit=&offset=` vs `?page=&per_page=`) · default and maximum page size ·
-whether inactive users appear in the list (an Admin managing users almost certainly needs to
-see deactivated accounts in order to reactivate them). Also: return a `total` count for a UI
-pager, which costs a second `COUNT(*)` query, or just the array?
+Query: `WHERE role = 'Approver' AND is_active = true ORDER BY full_name` — this is what
+`idx_users_role_active` (checkpoint 1) was built for. Response is minimal: `id` and
+`full_name` are all a dropdown needs. No pagination — the approver list is inherently small.
 
-**Remaining in this group, one checkpoint each:** #9 `GET /api/approvers` (authenticated,
-_not_ Admin-only — feeds the Assign Approver dropdown, uses `idx_users_role_active`) · #8
-`PUT /api/users/{userID}/active` (first **path parameter**, `r.PathValue`; deactivate _and_
-reactivate) · **#7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix, `SELECT … FOR
-UPDATE` on the user row + active-CC count, blocked role change → **409 listing the blocking
-CC-IDs** while the **name change in the same request still commits**. That last one gets a
-checkpoint entirely to itself.
+Should be the shortest checkpoint yet.
+
+**Remaining in this group, one checkpoint each:** #8 `PUT /api/users/{userID}/active` (first
+**path parameter** via `r.PathValue`; deactivate _and_ reactivate; note
+`ck_audit_logs_action_type` has `UserDeactivated` but **no** `UserReactivated`, so
+reactivation needs a decision) · **#7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix,
+`SELECT … FOR UPDATE` on the user row plus the active-CC count, blocked role change → **409
+listing the blocking CC-IDs** while the **name change in the same request still commits**.
+That last one gets a checkpoint to itself.
 
 **Then, in API Endpoint Plan order:** CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
@@ -599,7 +673,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 7   | **Goose run as a global CLI from `sql/schema`**                                                                                                                                                                                                                                                            | Keeps migration files free of Go wiring                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 8   | **Uniqueness form rule:** plain columns → table `CONSTRAINT ... UNIQUE`; expressions or partials → `CREATE UNIQUE INDEX`                                                                                                                                                                                   | A `UNIQUE` table constraint accepts only a column list, so `uq_users_email` on `LOWER(email)` _must_ be an index. Constraints are preferred otherwise: `ON CONFLICT ON CONSTRAINT <name>`, visibility in `information_schema.table_constraints`, and Postgres's own recommendation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 9   | **DBeaver is connected for browsing only.** All schema changes go through goose                                                                                                                                                                                                                            | Applied migrations are the schema's only description (Blueprint §13). DBeaver also splits `\d` across tabs and blurs the constraint-vs-index distinction from #8 — **DBeaver to navigate, psql to verify**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` requires `pg_catalog.time`.** Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                                                                                                                                                                                     |
+| 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` and `bool` require the `pg_catalog.` prefix.** (`bool` was added at checkpoint 13, when the first nullable boolean _parameter_ appeared — no nullable boolean column exists in the schema.) Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                       |
 | 11  | **Password hashing uses `github.com/alexedwards/argon2id`, not raw `golang.org/x/crypto/argon2`**                                                                                                                                                                                                          | Blueprint §2 names the algorithm (argon2id), not a package, so the choice was open. The library already does PHC-string encoding, `crypto/rand` salting, parameter round-tripping and constant-time comparison — a reviewed implementation rather than hand-rolled crypto plumbing. Params are set **explicitly** (not `DefaultParams` in app code) so a library-default change can't silently alter hashing strength, and so the values are auditable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 12  | **Data delivered to handlers by two different mechanisms, chosen by failure mode: request logger via `context`, authenticated user via explicit argument**                                                                                                                                                 | Fills the Blueprint §15 logging gap. The rule: _match the delivery mechanism to what happens when the thing is missing._ A missing logger is harmless → `context` value with a `slog.Default()` fallback (`LoggerFrom`). A missing authenticated user is a security hole → explicit third argument on an `authedHandler` type, so forgetting auth is a **compile error**, not a runtime surprise — the compiler becomes an auth control, which matters for a regulated system. Not inconsistency: same principle, opposite stakes. (Considered and rejected: context for both, for surface consistency — it would trade a compile-time guarantee for a per-route discipline across 22 routes.) Logging is minimal per §0/§15: request ID + start/finish + errors; runtime level-filtering deferred (slog provides the levels regardless)                                                                                                                                                                                                                                |
 | 17  | **Password policy: minimum 8 characters, with at least 1 lowercase, 1 uppercase, 1 digit and 1 special character.** Enforced in `validatePassword` (`helpers.go`) with **collect-all** reporting                                                                                                           | **No guardrail doc specifies a password policy** — this is a genuine spec gap being filled, and needs adding to the BRD (see pending-amendments). Without it `"a"` would have been accepted. Collect-all (every unmet rule in one message) rather than fail-first, matching BR-8.2.6's pattern for transition validation, so a user fixes everything in one pass. The log records only the _count_ of unmet rules, never which ones — knowing "had lowercase, no digits" is a weak hint about a password that may be retried with a small variation. An earlier draft used 4-of-each, which implies a 16-character minimum; relaxed to 1-of-each as the conventional baseline. **Passwords are never trimmed** anywhere — leading/trailing spaces are legitimate characters, and trimming at creation but not at login would silently create unusable accounts                                                                                                                                                                                                          |
