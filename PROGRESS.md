@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 13 — `GET /api/users` · **6 of 22 endpoints done**
-- **Next task:** checkpoint 14 — `GET /api/approvers` (endpoint 9)
+- **Last checkpoint:** 14 — `GET /api/approvers` · **7 of 22 endpoints done**
+- **Next task:** checkpoint 15 — `PUT /api/users/{userID}/active` (endpoint 8)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -23,7 +23,7 @@ guardrail docs carry the substance and are always attached.
 | `internal/auth` (argon2id)        | ✅ Complete — hashing + tests + app wiring        |
 | `cmd/seed`                        | ✅ Complete — 4 users seeded and verified         |
 | Structured logging (slog+context) | ✅ Complete — request IDs proven end to end       |
-| API implementation (22 endpoints) | 🔵 **In progress — 6 / 22**                       |
+| API implementation (22 endpoints) | 🔵 **In progress — 7 / 22**                       |
 
 ---
 
@@ -617,26 +617,74 @@ separate for now. Revisit if a fourth appears.
 
 ---
 
+### ✅ Checkpoint 14 — `GET /api/approvers` (endpoint 9 of 22)
+
+Smallest endpoint so far. **Authenticated, not Admin-only** — registration **variation 2**.
+
+**`sql/queries/users.sql` — `ListApprovers :many`**
+
+```sql
+SELECT id, full_name FROM users
+WHERE role = 'Approver' AND is_active = true
+ORDER BY full_name;
+```
+
+- **Two columns, not `SELECT *`** — `hashed_password` never enters the result set at all,
+  rather than relying on the mapping step to drop it. sqlc generates a narrow
+  `ListApproversRow`
+- No parameters (the role is hardcoded — this is a dedicated endpoint, not a generic filter)
+  and **no pagination**: the approver list is inherently small
+- This is the query **`idx_users_role_active` was built for** (checkpoint 1): leading column
+  present, and "active approvers" is genuinely selective — unlike `WHERE is_active = ...`
+  alone, which can't use that index (no leading column) and which Postgres wouldn't index
+  anyway, since a mostly-true boolean is near the worst case for selectivity
+
+**`handlers_users.go` — `HandlerListApprovers`.** Response wrapped as
+`{"approvers": [...]}` rather than a bare top-level array, so fields can be added later
+without a breaking change.
+
+**Critically: no `requireRole`.** The primary consumer is a **CC Owner** filling in the
+Assign Approver field (BRD field 35). Admin-gating this would break the core workflow.
+
+| Check                                                    | Verified |
+| -------------------------------------------------------- | -------- |
+| **CC Owner** → 200 with the list (the case that matters) | ✅       |
+| Admin → 200, same list · Viewer → 200, same list         | ✅       |
+| No token → 401                                           | ✅       |
+
+**Note:** BR-8.3.1's segregation of duties is **structural** — one role per user — so a CC
+Owner can never also be an Approver, meaning a user physically cannot appear in their own
+approver dropdown. No self-filter needed; the schema enforces it.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 14 — `GET /api/approvers` (endpoint 9)
+### ⬜ Checkpoint 15 — `PUT /api/users/{userID}/active` (endpoint 8, Admin)
 
-**Authenticated, not Admin-only** — registration **variation 2**. Any logged-in user needs it
-to populate the Assign Approver dropdown (BRD field 35), so `requireRole` must _not_ wrap it.
+Admin-only, variation 3. Body `{"is_active": bool}` — handles **deactivate and reactivate**
+(the API plan notes the BRD mandates deactivation and the toggle implies both).
 
-Query: `WHERE role = 'Approver' AND is_active = true ORDER BY full_name` — this is what
-`idx_users_role_active` (checkpoint 1) was built for. Response is minimal: `id` and
-`full_name` are all a dropdown needs. No pagination — the approver list is inherently small.
+**New mechanic: path parameters.** Go 1.22+ gives this free —
+`mux.Handle("PUT /api/users/{userID}/active", ...)` then `r.PathValue("userID")`, parsed with
+`uuid.Parse` → 400 on a malformed UUID. Every remaining endpoint from #12 onward uses this.
 
-Should be the shortest checkpoint yet.
+Transaction (decision #18): load the target user (404 if absent) → `SetUserActive` → audit →
+commit.
 
-**Remaining in this group, one checkpoint each:** #8 `PUT /api/users/{userID}/active` (first
-**path parameter** via `r.PathValue`; deactivate _and_ reactivate; note
-`ck_audit_logs_action_type` has `UserDeactivated` but **no** `UserReactivated`, so
-reactivation needs a decision) · **#7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix,
-`SELECT … FOR UPDATE` on the user row plus the active-CC count, blocked role change → **409
-listing the blocking CC-IDs** while the **name change in the same request still commits**.
-That last one gets a checkpoint to itself.
+**Two decisions needed:**
+
+1. **`ck_audit_logs_action_type` has `UserDeactivated` but no `UserReactivated`.** Options:
+   audit reactivation as `UserUpdated` with `field_name='is_active'`, or don't audit it.
+   Leaning `UserUpdated` — an existing value, and the field/old/new columns carry the meaning.
+2. **Should an Admin be able to deactivate themselves?** Nothing forbids it, but locking the
+   only Admin out of the system is a real footgun. A `targetID == admin.ID` → 400 guard is
+   cheap. Not in any doc.
+
+**Then #7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix: `SELECT … FOR UPDATE` on
+the user row plus the active-CC count, blocked role change → **409 listing the blocking
+CC-IDs** while the **name change in the same request still commits**. Gets a checkpoint to
+itself.
 
 **Then, in API Endpoint Plan order:** CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
