@@ -25,3 +25,8 @@ LIMIT $1 OFFSET $2;
 -- name: CountUsers :one
 SELECT COUNT(*) FROM users
 WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_active'));
+
+-- name: ListApprovers :many
+SELECT id, full_name FROM users
+WHERE role = 'Approver' AND is_active = true
+ORDER BY full_name;

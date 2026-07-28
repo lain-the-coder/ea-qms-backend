@@ -104,6 +104,40 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const listApprovers = `-- name: ListApprovers :many
+SELECT id, full_name FROM users
+WHERE role = 'Approver' AND is_active = true
+ORDER BY full_name
+`
+
+type ListApproversRow struct {
+	ID       uuid.UUID
+	FullName string
+}
+
+func (q *Queries) ListApprovers(ctx context.Context) ([]ListApproversRow, error) {
+	rows, err := q.db.QueryContext(ctx, listApprovers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApproversRow
+	for rows.Next() {
+		var i ListApproversRow
+		if err := rows.Scan(&i.ID, &i.FullName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, full_name, email, hashed_password, role, is_active, created_on, updated_on FROM users
 WHERE ($3::boolean IS NULL OR is_active = $3)

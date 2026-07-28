@@ -229,3 +229,32 @@ func (cfg *apiConfig) HandlerListUsers(w http.ResponseWriter, r *http.Request, a
 		Offset: offset,
 	})
 }
+
+func (cfg *apiConfig) HandlerListApprovers(w http.ResponseWriter, r *http.Request, _ database.User) {
+	type ApproverResponse struct {
+		ID       uuid.UUID `json:"id"`
+		FullName string    `json:"full_name"`
+	}
+
+	type ListApproversResponse struct {
+		Approvers []ApproverResponse `json:"approvers"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	approvers, err := cfg.db.ListApprovers(r.Context())
+	if err != nil {
+		log.Error("approver retrieval failed", "reason", "db approver list retrieval failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	approverResponses := make([]ApproverResponse, 0, len(approvers))
+	for _, a := range approvers {
+		approverResponses = append(approverResponses, ApproverResponse{
+			ID:       a.ID,
+			FullName: a.FullName,
+		})
+	}
+	log.Info("approvers listed", "count", len(approvers))
+	respondWithJSON(w, http.StatusOK, ListApproversResponse{
+		Approvers: approverResponses,
+	})
+}
