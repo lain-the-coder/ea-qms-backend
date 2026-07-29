@@ -30,3 +30,14 @@ WHERE (sqlc.narg('is_active')::boolean IS NULL OR is_active = sqlc.narg('is_acti
 SELECT id, full_name FROM users
 WHERE role = 'Approver' AND is_active = true
 ORDER BY full_name;
+
+-- name: GetUserForUpdate :one
+SELECT * FROM users
+WHERE id = $1
+FOR UPDATE;
+
+-- name: SetUserActiveStatus :one
+UPDATE users
+SET is_active = $2, updated_on = NOW()
+WHERE id = $1
+RETURNING *;

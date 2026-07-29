@@ -33,8 +33,8 @@ func (cfg *apiConfig) HandlerRefresh(w http.ResponseWriter, r *http.Request) {
 	log := logging.LoggerFrom(r.Context())
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		log.Error("refresh failed", "reason", "malformed request body", "error", err)
-		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		log.Warn("refresh failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	// request validation
@@ -118,8 +118,8 @@ func (cfg *apiConfig) HandlerRevoke(w http.ResponseWriter, r *http.Request) {
 	log := logging.LoggerFrom(r.Context())
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		log.Error("revoke failed", "reason", "malformed request body", "error", err)
-		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		log.Warn("revoke failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	// request validation
@@ -158,8 +158,8 @@ func (cfg *apiConfig) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 	log := logging.LoggerFrom(r.Context())
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		log.Error("login failed", "reason", "malformed request body", "error", err)
-		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		log.Warn("login failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	// request validation

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -51,8 +52,8 @@ func (cfg *apiConfig) HandlerCreateUser(w http.ResponseWriter, r *http.Request, 
 	log := logging.LoggerFrom(r.Context())
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		log.Error("user creation failed", "reason", "malformed request body", "error", err)
-		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		log.Warn("user creation failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	// request validation
@@ -256,5 +257,158 @@ func (cfg *apiConfig) HandlerListApprovers(w http.ResponseWriter, r *http.Reques
 	log.Info("approvers listed", "count", len(approvers))
 	respondWithJSON(w, http.StatusOK, ListApproversResponse{
 		Approvers: approverResponses,
+	})
+}
+
+func (cfg *apiConfig) HandlerUpdateUserStatus(w http.ResponseWriter, r *http.Request, admin database.User) {
+	type UpdateUserStatusRequest struct {
+		IsActive *bool `json:"is_active"` // using *bool to capture empty body from user
+	}
+	type blockedResponse struct {
+		Error   string   `json:"error"`
+		Blocked []string `json:"blocked_cc_ids"`
+	}
+	type UserStatusResponse struct {
+		ID        uuid.UUID `json:"id"`
+		FullName  string    `json:"full_name"`
+		Email     string    `json:"email"`
+		Role      string    `json:"role"`
+		IsActive  bool      `json:"is_active"`
+		UpdatedOn time.Time `json:"updated_on"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	// extract path parameter
+	userIDStr := r.PathValue("userID")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		log.Warn("user status update failed", "reason", "invalid userID parameter value", "user_id_param", userIDStr)
+		respondWithError(w, "Invalid Path Parameter for User ID", http.StatusBadRequest)
+		return
+	}
+	// decode request body
+	reqBody := UpdateUserStatusRequest{}
+	err = json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Warn("user status update failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	// empty body check
+	if reqBody.IsActive == nil {
+		log.Warn("user status update failed", "reason", "empty is_active value")
+		respondWithError(w, "Empty is_active value", http.StatusBadRequest)
+		return
+	}
+	isActive := boolValue(reqBody.IsActive)
+	// self deactivation check
+	if userID == admin.ID && !isActive {
+		log.Warn("user status update failed", "reason", "self deactivation")
+		respondWithError(w, "Self Deactivation is not allowed", http.StatusBadRequest)
+		return
+	}
+	// open transaction
+	tx, err := cfg.rawDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Error("user status update failed", "reason", "could not begin transaction", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+	qtx := cfg.db.WithTx(tx)
+	user, err := qtx.GetUserForUpdate(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("user status update failed", "reason", "user not found", "target_user_id", userID)
+			respondWithError(w, "User Not Found", http.StatusNotFound)
+			return
+		}
+		log.Error("user status update failed", "reason", "user lookup failed", "target_user_id", userID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// no-op if current user status and request status is same aka no delta
+	if user.IsActive == isActive {
+		err = tx.Commit()
+		if err != nil {
+			log.Error("user status update failed", "reason", "db commit failed", "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		log.Info("user status unchanged", "target_user_id", user.ID, "is_active", isActive)
+		respondWithJSON(w, http.StatusOK, UserStatusResponse{
+			ID:        user.ID,
+			FullName:  user.FullName,
+			Email:     user.Email,
+			Role:      user.Role,
+			IsActive:  user.IsActive,
+			UpdatedOn: user.UpdatedOn,
+		})
+		return
+	}
+	// Active CC guard, deactivation only
+	if !isActive {
+		activeCCsForUser, err := qtx.ListActiveCCIDsForUser(r.Context(), userID)
+		if err != nil {
+			log.Error("user status update failed", "reason", "cc lookup failed", "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+		if len(activeCCsForUser) > 0 {
+			log.Warn("user status update failed", "reason", "user has active change controls",
+				"target_user_id", userID, "blocking_count", len(activeCCsForUser))
+			respondWithJSON(w, http.StatusConflict, blockedResponse{
+				Error:   "Cannot deactivate a user with active CCs",
+				Blocked: activeCCsForUser,
+			})
+			return
+		}
+	}
+	updatedUser, err := qtx.SetUserActiveStatus(r.Context(), database.SetUserActiveStatusParams{
+		ID:       user.ID,
+		IsActive: isActive,
+	})
+	if err != nil {
+		log.Error("user status update failed", "reason", "user update failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit row — purpose-built action type for deactivation, generic for reactivation
+	action := actionUserDeactivated
+	if isActive {
+		action = actionUserUpdated
+	}
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityUser,
+		EntityID:        updatedUser.ID,
+		ActionType:      action,
+		FieldName:       strPtr("is_active"),
+		OldValue:        strPtr(strconv.FormatBool(user.IsActive)),
+		NewValue:        strPtr(strconv.FormatBool(updatedUser.IsActive)),
+		PerformedByID:   admin.ID,
+		PerformedByName: admin.FullName,
+		CreatedOn:       time.Now().UTC(),
+	})
+	if err != nil {
+		log.Error("user status update failed", "reason", "audit entry failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	// commit
+	err = tx.Commit()
+	if err != nil {
+		log.Error("user status update failed", "reason", "db commit failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	log.Info("user status updated", "target_user_id", updatedUser.ID, "is_active", updatedUser.IsActive)
+	respondWithJSON(w, http.StatusOK, UserStatusResponse{
+		ID:        updatedUser.ID,
+		FullName:  updatedUser.FullName,
+		Email:     updatedUser.Email,
+		Role:      updatedUser.Role,
+		IsActive:  updatedUser.IsActive,
+		UpdatedOn: updatedUser.UpdatedOn,
 	})
 }

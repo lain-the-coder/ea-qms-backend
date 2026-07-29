@@ -111,3 +111,16 @@ func parsePagination(q url.Values) (int32, int32, error) {
 
 	return limit, offset, nil
 }
+
+func boolValue(b *bool) bool {
+	if b != nil {
+		return *b
+	}
+	return false
+}
+
+// strPtr returns a pointer to s. Needed because Go does not allow taking the
+// address of a literal, and the nullable audit columns are *string.
+func strPtr(s string) *string {
+	return &s
+}

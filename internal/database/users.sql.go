@@ -104,6 +104,28 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const getUserForUpdate = `-- name: GetUserForUpdate :one
+SELECT id, full_name, email, hashed_password, role, is_active, created_on, updated_on FROM users
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetUserForUpdate(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserForUpdate, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.HashedPassword,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedOn,
+		&i.UpdatedOn,
+	)
+	return i, err
+}
+
 const listApprovers = `-- name: ListApprovers :many
 SELECT id, full_name FROM users
 WHERE role = 'Approver' AND is_active = true
@@ -181,4 +203,32 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const setUserActiveStatus = `-- name: SetUserActiveStatus :one
+UPDATE users
+SET is_active = $2, updated_on = NOW()
+WHERE id = $1
+RETURNING id, full_name, email, hashed_password, role, is_active, created_on, updated_on
+`
+
+type SetUserActiveStatusParams struct {
+	ID       uuid.UUID
+	IsActive bool
+}
+
+func (q *Queries) SetUserActiveStatus(ctx context.Context, arg SetUserActiveStatusParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, setUserActiveStatus, arg.ID, arg.IsActive)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.HashedPassword,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedOn,
+		&i.UpdatedOn,
+	)
+	return i, err
 }
