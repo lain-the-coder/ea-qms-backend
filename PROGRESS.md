@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 15 — `PUT /api/users/{userID}/active` · **8 of 22 endpoints done**
-- **Next task:** checkpoint 16 — `PUT /api/users/{userID}` (endpoint 7, BR-8.4.11 TOCTOU)
+- **Last checkpoint:** 16 — `PUT /api/users/{userID}` · **9 of 22 · Groups 1 & 2 COMPLETE**
+- **Next task:** checkpoint 17 — Group 3, the change controls themselves (endpoints 10–13)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -16,14 +16,16 @@ guardrail docs carry the substance and are always attached.
 
 ## Phase status
 
-| Phase                             | State                                             |
-| --------------------------------- | ------------------------------------------------- |
-| Migrations (001–006)              | ✅ Complete — all six tables applied and verified |
-| sqlc setup                        | ✅ Complete — pointer types working under lib/pq  |
-| `internal/auth` (argon2id)        | ✅ Complete — hashing + tests + app wiring        |
-| `cmd/seed`                        | ✅ Complete — 4 users seeded and verified         |
-| Structured logging (slog+context) | ✅ Complete — request IDs proven end to end       |
-| API implementation (22 endpoints) | 🔵 **In progress — 8 / 22**                       |
+| Phase                               | State                                             |
+| ----------------------------------- | ------------------------------------------------- |
+| Migrations (001–006)                | ✅ Complete — all six tables applied and verified |
+| sqlc setup                          | ✅ Complete — pointer types working under lib/pq  |
+| `internal/auth` (argon2id)          | ✅ Complete — hashing + tests + app wiring        |
+| `cmd/seed`                          | ✅ Complete — 4 users seeded and verified         |
+| Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end       |
+| API — Group 1 Auth (1–3)            | ✅ Complete                                       |
+| API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
+| API — Groups 3–7 (10–22)            | ⬜ **Next** — change controls, workflow, files    |
 
 ---
 
@@ -716,33 +718,74 @@ correctness.** Run a new query through psql once before wiring the handler.
 
 ---
 
+### ✅ Checkpoint 16 — `PUT /api/users/{userID}` (endpoint 7 of 22) — **Group 2 complete**
+
+Admin-only, variation 3. The BR-8.4.11 endpoint, and the last of the Users & Profile group.
+
+**Queries** — `UpdateUserName`, `UpdateUserRole`. **Two separate queries**, not one combined
+`UPDATE`, because either may run alone.
+
+**Request** — `full_name` and `role` both `*string`: nil means _"not changing this field"_, so
+**absent is distinguishable from empty**. Both nil → 400. Email and password are not accepted
+(BR-8.4.9).
+
+**The central lesson — "was it sent?" vs "did it change?"** Computed once after the locking
+SELECT:
+
+```go
+nameChanged := reqBody.FullName != nil && fullName != current.FullName
+roleChanged := reqBody.Role     != nil && role     != current.Role
+```
+
+Every subsequent branch keys off these, **not** off `!= nil`. This matters because the UI's
+edit row submits **both fields on every save** — so gating the CC guard on mere presence made
+it impossible to rename anyone with an open change control (the guard fired on an _unchanged_
+role and returned 409). The `!= nil` half is still needed for **validation** ("was it sent? is
+it blank?"); the delta is for **action** ("write it? audit it? run the guard?").
+
+**Transaction:** `GetUserForUpdate` (locks) → no-op check → CC guard → updates → audit rows →
+commit. Old values are captured before `current` is patched; the response and success log are
+built from what the queries **RETURNED**, never from the request locals — otherwise a
+role-only update would report `full_name: ""`.
+
+**Two audit rows share one captured timestamp** (BR-8.7.5), with action types split per DB
+§8.2: `UserUpdated` for the name, `UserRoleChanged` for the role.
+
+| Check                                                                              | Verified |
+| ---------------------------------------------------------------------------------- | -------- |
+| Name-only, role-only, both — all 200 with **every** field correct                  | ✅       |
+| Exact repeat → 200 no-op, **no audit rows**                                        | ✅       |
+| Changed name + **unchanged** role in body → **one** audit row, CC guard skipped    | ✅       |
+| Empty body / blank name / invalid role / bad UUID → 400 · unknown user → 404       | ✅       |
+| Self-role-change → 400 · self-name-change → 200 · self name + unchanged role → 200 | ✅       |
+| CC Owner → 403 · no token → 401                                                    | ✅       |
+| **Dual change wrote two audit rows with an identical `created_on`**                | ✅       |
+
+**This is the rehearsal for T2**, where one transition writes a state change, an e-signature
+and several audit rows that must all cohere under one timestamp in one transaction.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 16 — `PUT /api/users/{userID}` (endpoint 7, Admin) — the BR-8.4.11 fix
+### ⬜ Checkpoint 17 — Group 3, change controls (endpoints 10–13)
 
-Admin-only, variation 3. Body carries **full_name and/or role** — **never email, never
-password** (BR-8.4.9). Closes the Users & Profile group.
+The first business-domain endpoints. Four of them, and **two carry hidden complexity**:
 
-**The BR-8.4.11 TOCTOU fix (DB §8.2)** — one transaction:
-`GetUserForUpdate` (locks the row) → if the name changed, update + audit `UserUpdated` → if
-the role changed, `ListActiveCCIDsForUser`; if any exist, **409 listing the blocking CC-IDs**;
-otherwise update + audit `UserRoleChanged` → commit.
+| #   | Endpoint                         | Note                                                                                                                                                                                                                                                                                             |
+| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 10  | `POST /api/changecontrols`       | CC Owner only. Creates in `Initiated` with both statuses `Not Submitted`. **First use of the `cc_number_seq` + generated `cc_id`** — the insert never mentions `cc_id`; `RETURNING *` hands it back (DB §8.1). Audit `Created`. Not idempotent by design: every call burns a CC number (flag #8) |
+| 11  | `GET /api/changecontrols`        | Filterable by state / owner / approver plus pagination. **Four optional filters → the `sqlc.narg` + `IS NULL OR` pattern from checkpoint 13 is what avoids sixteen hand-written query permutations.** Role-scoped: a CC Owner sees their own, Approver sees assigned, Admin/Viewer see all       |
+| 12  | `GET /api/changecontrols/{ccID}` | The 50-field read. **First place flag #9 gets tested** — the two `TIME` columns scanning into `*time.Time` is unverified with lib/pq. Needs the full response mapper (rule 3: never marshal the DB struct)                                                                                       |
+| 13  | `PUT /api/changecontrols/{ccID}` | **Save Draft — the hard one.** Must distinguish _field absent_ / `"field": null` / `"field": "value"` across ~40 nullable fields, which standard `json.Decode` cannot do. **No presence validation** (that happens only at transitions). Owner-only, `Initiated` state only                      |
 
-**The counterintuitive part:** a blocked role change must still **COMMIT**, because the
-**name change in the same request has to survive**. A 409 response that commits its
-transaction — the opposite of every other rejection path so far, all of which roll back.
+**Groundwork this group needs:** the six state constants (`ck_cc_current_state`), the two
+approval-status constants, a 50-field response mapper, and the CC-scoped queries. The
+`*string`/`*bool` absent-vs-value pattern rehearsed in checkpoints 15–16 is what endpoint 13
+needs at scale.
 
-Most of the machinery already exists from checkpoint 15 (`GetUserForUpdate`,
-`ListActiveCCIDsForUser`, the blocked-response shape, the `FOR UPDATE` reasoning). New: an
-update query for name/role, and **auditing only the fields that actually changed** — the same
-delta principle as the no-op branch, now across two independent fields.
-
-**Settled before starting (decision #21):** an Admin may change their **own name** but **not
-their own role** — the same lockout guard as self-deactivation. Email and password are
-rejected outright (BR-8.4.9). The frontend prototype and its wording are covered by **F3**
-and **F6**.
-
-**Then, in API Endpoint Plan order:** CC create/get/list/save-draft → **T2 submit, the first
+**Then:** **T2 submit — the first full transition, written fully inline** (§0: no generic
+engine until three exist) → T3, T4/5 → files → T6 → T7/8 → dashboard → signatures. CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
 dashboard → signatures.
 
@@ -753,12 +796,14 @@ dashboard → signatures.
 Session decisions that now contradict a guardrail doc. Until amended, a future session may
 "correct" a deliberate choice back.
 
-| Doc                    | Change needed                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `API_ENDPOINT_PLAN.md` | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                    |
-| `CONTEXT_HANDOFF.md`   | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                   |
-| BRD                    | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
-| DB Design doc          | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                           |
+| Doc                           | Change needed                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_ENDPOINT_PLAN.md`        | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                    |
+| BRD **BR-8.4.11** scope note  | Remove _"the name change can still be saved"_ — a blocked role change now saves **nothing** (decision #22)                                                                                                                                                                                                                                                                                                        |
+| DB Design **§8.2** scope note | Remove _"a name change on the same request must still succeed... the handler applies the name update regardless"_ — same override (decision #22)                                                                                                                                                                                                                                                                  |
+| `CONTEXT_HANDOFF.md`          | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                   |
+| BRD                           | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
+| DB Design doc                 | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                           |
 
 ---
 
@@ -780,6 +825,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` and `bool` require the `pg_catalog.` prefix.** (`bool` was added at checkpoint 13, when the first nullable boolean _parameter_ appeared — no nullable boolean column exists in the schema.) Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                       |
 | 11  | **Password hashing uses `github.com/alexedwards/argon2id`, not raw `golang.org/x/crypto/argon2`**                                                                                                                                                                                                          | Blueprint §2 names the algorithm (argon2id), not a package, so the choice was open. The library already does PHC-string encoding, `crypto/rand` salting, parameter round-tripping and constant-time comparison — a reviewed implementation rather than hand-rolled crypto plumbing. Params are set **explicitly** (not `DefaultParams` in app code) so a library-default change can't silently alter hashing strength, and so the values are auditable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 12  | **Data delivered to handlers by two different mechanisms, chosen by failure mode: request logger via `context`, authenticated user via explicit argument**                                                                                                                                                 | Fills the Blueprint §15 logging gap. The rule: _match the delivery mechanism to what happens when the thing is missing._ A missing logger is harmless → `context` value with a `slog.Default()` fallback (`LoggerFrom`). A missing authenticated user is a security hole → explicit third argument on an `authedHandler` type, so forgetting auth is a **compile error**, not a runtime surprise — the compiler becomes an auth control, which matters for a regulated system. Not inconsistency: same principle, opposite stakes. (Considered and rejected: context for both, for surface consistency — it would trade a compile-time guarantee for a per-route discipline across 22 routes.) Logging is minimal per §0/§15: request ID + start/finish + errors; runtime level-filtering deferred (slog provides the levels regardless)                                                                                                                                                                                                                                |
+| 22  | **A blocked role change saves _nothing_ — the request is all-or-nothing.** The CC guard runs **before** any write                                                                                                                                                                                          | **Overrides two guardrail documents**, unlike every other decision so far: BR-8.4.11's scope note and **DB Design §8.2** both specify that _"a name change on the same request must still succeed... the handler applies the name update regardless and gates only the role update behind the active-record check."_ That design means a 409 response whose transaction **commits**, which then requires the 409 body to report what was saved so the UI can update the row, and a banner reading "the name change has been saved". All-or-nothing removes that whole branch of complexity. **The practical loss is small:** a name-only edit is unaffected (`roleChanged` is false, so the guard never runs), and the only case that changes is "changed both, role blocked" — where the Admin simply retries with the name alone. **Both documents need amending** (see pending-amendments), and this also retires frontend note F3                                                                                                                                   |
 | 21  | **An Admin may change their own _name_ but not their own _role_** (`PUT /api/users/{userID}` — checkpoint 16)                                                                                                                                                                                              | Same lockout footgun as self-deactivation (decision #20): an Admin demoting themselves to Viewer loses user-management access, and if they are the last Admin nobody can restore it — unrecoverable through the API. Blocking only the _role_ half is the minimum guard: the name change is harmless and the prototype's edit row offers both fields together. Note the prototype goes further and omits the pencil entirely for `(you)`; the API is deliberately less restrictive, since a self-name-change is legitimate and the API must not depend on UI discipline for the part that matters                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 19  | **Deactivation is blocked while the user owns or is assigned to any CC not in `Closed`/`Cancelled`** → 409 listing the blocking CC-IDs. Reactivation skips the check entirely                                                                                                                              | **Fills a gap in the BRD, which restricts only _role_ changes** (§2.2, BR-8.4.11) and says nothing about deactivation — yet the harm is identical: a deactivated approver cannot log in, so their assigned CCs sit in `Pending Implementation Approval` with nobody able to action them, and **no reassignment endpoint exists** to recover. Not scope creep but closing an inconsistency in the requirements; the BRD needs amending (see pending-amendments). Reactivation can only _unblock_ stranded records, so the guard is deactivation-only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 20  | **`PUT /api/users/{userID}/active` details:** audit action type by direction (`UserDeactivated` true→false, `UserUpdated` with `field_name`/`old`/`new` false→true) · self-**de**activation blocked · a no-op writes **no** audit row · 200 with the user on both paths                                    | _Action types:_ `ck_audit_logs_action_type` has no `UserReactivated`, so the purpose-built value is used where it exists and the generic one where it doesn't; the field/old/new columns carry the meaning precisely. _Self-guard:_ the last Admin locking themselves out is unrecoverable through the API; self-*re*activation needs no guard (it's impossible to reach). _No-op:_ `audit_logs` records changes, and "false → false" isn't one — the branch commits (releasing the lock) rather than rolling back. _200 with the user:_ the `SELECT` is required anyway for the 404 check, the audit's old value and the no-op detection, so returning the object costs nothing and saves the frontend a re-fetch                                                                                                                                                                                                                                                                                                                                                      |
@@ -801,7 +847,7 @@ into the UI build / handover rather than being buried in the flags table.
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | F1  | **Refresh proactively on a timer** at ~24 min (≈80 % of the 30-min access token), plus a 401-interceptor that refreshes and retries once as a safety net. The backend contract assumes this; without it users hit surprise logouts                                                                                                                                                                                                                                                                                                                                                                                        | flag #12, decision #15                             |
 | F2  | **Normalize en-dashes to ASCII hyphens** before submitting. The HTML prototypes' `<option value="...">` entries contain en-dashes; `ck_cc_requires_testing` and `ck_esignatures_meaning` are live and will reject them on every submit. Either normalize at the API boundary or fix the prototypes                                                                                                                                                                                                                                                                                                                        | flag #4, DB §6.5                                   |
-| F3  | **The blocked-role-change banner wording is wrong in the prototype.** It reads _"The name change can still be saved"_, implying the name is still pending. Per BR-8.4.11 the name change **has already been committed** as part of that same 409 response — so it must read _"The name change has been saved."_ As written, a user may click save again and get the same 409                                                                                                                                                                                                                                              | `settings-admin.html`, decision #21                |
+| F3  | **Rewrite the blocked-role-change banner.** The prototype reads _"…These records must be Closed or Cancelled before the role can be changed. **The name change can still be saved.**"_ — that last sentence must be **deleted**. Under decision #22 a blocked role change saves **nothing**, so the banner should state only that the role change was blocked and list the offending CC-IDs from `blocked_cc_ids`                                                                                                                                                                                                         | `settings-admin.html`, decision #22                |
 | F4  | **Disable the active/inactive toggle for the current user's own row.** The API returns 400 for self-deactivation, so leaving it enabled produces an error the UI could have prevented. The prototype already omits the pencil icon for `(you)` but leaves the toggle live                                                                                                                                                                                                                                                                                                                                                 | `settings-admin.html`, decision #20                |
 | F5  | **Send `?limit=` explicitly.** The prototype's pager shows 20 per page; the API's default is 50 (max 200). The response echoes `limit`/`offset`/`total` back for the pager                                                                                                                                                                                                                                                                                                                                                                                                                                                | checkpoint 13                                      |
 | F7  | **The Profile screen is read-only in Phase 1.** `settings-profile-enduser.html` offers a **Full Name edit + Save Changes** and a **Change Password** form; neither has a backing endpoint. _Change password_ is a **documented descope** (API plan "Forgot / reset / change password"). _Self name-change_ is an **undocumented gap** — `GET /api/me` is described in the plan as read-only, and `PUT /api/users/{userID}` is Admin-gated, so a regular user calling it gets 403. **Phase 1 UI:** display name / email / role from `GET /api/me`, plus sign-out via `POST /api/revoke`. Both sections deferred to Phase 2 | `settings-profile-enduser.html`, API plan §Group 2 |
