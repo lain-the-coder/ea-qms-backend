@@ -91,8 +91,10 @@ func main() {
 
 	mux.Handle("POST /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser))))
 	mux.Handle("GET /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerListUsers))))
-	mux.Handle("PUT /api/users/{userID}/active", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus))))
-
+	mux.Handle("PUT /api/users/{userID}/active",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus))))
+	mux.Handle("PUT /api/users/{userID}",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserDetails))))
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,

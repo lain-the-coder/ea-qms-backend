@@ -119,6 +119,13 @@ func boolValue(b *bool) bool {
 	return false
 }
 
+func strValue(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
 // strPtr returns a pointer to s. Needed because Go does not allow taking the
 // address of a literal, and the nullable audit columns are *string.
 func strPtr(s string) *string {

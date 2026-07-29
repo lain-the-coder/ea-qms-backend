@@ -232,3 +232,59 @@ func (q *Queries) SetUserActiveStatus(ctx context.Context, arg SetUserActiveStat
 	)
 	return i, err
 }
+
+const updateUserName = `-- name: UpdateUserName :one
+UPDATE users 
+SET full_name = $2, updated_on = NOW()
+WHERE id = $1 
+RETURNING id, full_name, email, hashed_password, role, is_active, created_on, updated_on
+`
+
+type UpdateUserNameParams struct {
+	ID       uuid.UUID
+	FullName string
+}
+
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserName, arg.ID, arg.FullName)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.HashedPassword,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedOn,
+		&i.UpdatedOn,
+	)
+	return i, err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE users 
+SET role = $2, updated_on = NOW()
+WHERE id = $1 
+RETURNING id, full_name, email, hashed_password, role, is_active, created_on, updated_on
+`
+
+type UpdateUserRoleParams struct {
+	ID   uuid.UUID
+	Role string
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserRole, arg.ID, arg.Role)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.HashedPassword,
+		&i.Role,
+		&i.IsActive,
+		&i.CreatedOn,
+		&i.UpdatedOn,
+	)
+	return i, err
+}

@@ -41,3 +41,15 @@ UPDATE users
 SET is_active = $2, updated_on = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateUserName :one
+UPDATE users 
+SET full_name = $2, updated_on = NOW()
+WHERE id = $1 
+RETURNING *;
+
+-- name: UpdateUserRole :one
+UPDATE users 
+SET role = $2, updated_on = NOW()
+WHERE id = $1 
+RETURNING *;
