@@ -1026,7 +1026,7 @@
           ]
         },
         {
-          "name": "User Retrieval",
+          "name": "Users Retrieval",
           "request": {
             "method": "GET",
             "header": [],
@@ -1528,6 +1528,1032 @@
               ],
               "cookie": [],
               "body": "{\n    \"error\": \"Forbidden\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approvers Retrieval",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/approvers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "approvers"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Active Approvers",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/approvers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "approvers"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 28 Jul 2026 16:40:41 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "318"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"approvers\": [\n        {\n            \"id\": \"6c453215-99f8-4002-9a86-966e0ef33623\",\n            \"full_name\": \"Agent Smoke Test\"\n        },\n        {\n            \"id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n            \"full_name\": \"Default Approver\"\n        },\n        {\n            \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n            \"full_name\": \"Jane Approver\"\n        },\n        {\n            \"id\": \"7b12a58e-123e-493a-b9ec-806163757ecd\",\n            \"full_name\": \"Round3 Fixture\"\n        }\n    ]\n}"
+            },
+            {
+              "name": "no token",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/approvers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "approvers"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 28 Jul 2026 16:41:36 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PUT",
+            "header": []
+          },
+          "response": [
+            {
+              "name": "Deactivation",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                    "active"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:17:46 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "184"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Approver\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": false,\n    \"updated_on\": \"2026-07-29T17:17:46.564859+04:00\"\n}"
+            },
+            {
+              "name": "No-op Path",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                    "active"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:18:19 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "184"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Approver\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": false,\n    \"updated_on\": \"2026-07-29T17:17:46.564859+04:00\"\n}"
+            },
+            {
+              "name": "Activation",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": true\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                    "active"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:18:56 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "183"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Approver\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-29T17:18:56.737324+04:00\"\n}"
+            },
+            {
+              "name": "Empty Body",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:19:17 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "33"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Empty is_active value\"\n}"
+            },
+            {
+              "name": "JSON type mismatch",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": \"yes\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:20:02 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "32"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid request body\"\n}"
+            },
+            {
+              "name": "Invalid UserID",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": \"yes\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/true/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "true",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:22:01 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "46"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Path Parameter for User ID\"\n}"
+            },
+            {
+              "name": "User Not Found",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": true\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e5/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e5",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:23:07 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "26"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"User Not Found\"\n}"
+            },
+            {
+              "name": "Self-Deactivation",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/cf0b7249-5ee0-4163-8489-47d64f758148/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "cf0b7249-5ee0-4163-8489-47d64f758148",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:24:10 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "44"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Self Deactivation is not allowed\"\n}"
+            },
+            {
+              "name": "Self-Reactivation [No-op]",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": true\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/cf0b7249-5ee0-4163-8489-47d64f758148/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "cf0b7249-5ee0-4163-8489-47d64f758148",
+                    "active"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 13:24:35 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "188"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"System Administrator\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-20T20:39:17.470119+04:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update User Details",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "name changed, role untouched",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane Smith\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:45:27 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "181"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Smith\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": false,\n    \"updated_on\": \"2026-07-30T00:45:27.545253+04:00\"\n}"
+            },
+            {
+              "name": "role changed, name untouched",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"role\": \"Viewer\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:46:51 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "179"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane Smith\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Viewer\",\n    \"is_active\": false,\n    \"updated_on\": \"2026-07-30T00:46:51.172622+04:00\"\n}"
+            },
+            {
+              "name": "both changed",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane A Smith\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:47:29 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "183"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane A Smith\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": false,\n    \"updated_on\": \"2026-07-30T00:47:29.331726+04:00\"\n}"
+            },
+            {
+              "name": "no-op — no audit rows",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane A Smith\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:49:04 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "181"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane A Smith\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-30T00:47:51.00153+04:00\"\n}"
+            },
+            {
+              "name": "role sent but unchanged, so only the name audit row",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Jane B Smith\",\r\n    \"role\": \"Approver\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:49:40 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "182"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\",\n    \"full_name\": \"Jane B Smith\",\n    \"email\": \"jane@eaqms.local\",\n    \"role\": \"Approver\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-30T00:49:40.277837+04:00\"\n}"
+            },
+            {
+              "name": "{}",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:50:04 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "43"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Empty Full Name and Role values\"\n}"
+            },
+            {
+              "name": "blank full name",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"   \"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:50:29 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "37"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Full Name cannot be blank\"\n}"
+            },
+            {
+              "name": "invalid role",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"role\": \"Manager\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "13d25f19-36d3-4d0f-8652-75f2b78422e6"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:50:51 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Role\"\n}"
+            },
+            {
+              "name": "self-role-change",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"role\": \"Viewer\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/cf0b7249-5ee0-4163-8489-47d64f758148",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "cf0b7249-5ee0-4163-8489-47d64f758148"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:52:30 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "43"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Self Role Change is not allowed\"\n}"
+            },
+            {
+              "name": "self-name change allowed",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"Fatima A\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/cf0b7249-5ee0-4163-8489-47d64f758148",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "cf0b7249-5ee0-4163-8489-47d64f758148"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:52:51 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "176"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"Fatima A\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-30T00:52:51.316706+04:00\"\n}"
+            },
+            {
+              "name": "role sent but unchanged, so not blocked",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"full_name\": \"X\",\r\n    \"role\": \"Admin\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/cf0b7249-5ee0-4163-8489-47d64f758148",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "cf0b7249-5ee0-4163-8489-47d64f758148"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Wed, 29 Jul 2026 20:53:19 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "169"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"X\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-30T00:53:19.711719+04:00\"\n}"
             }
           ]
         }
