@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 14 — `GET /api/approvers` · **7 of 22 endpoints done**
-- **Next task:** checkpoint 15 — `PUT /api/users/{userID}/active` (endpoint 8)
+- **Last checkpoint:** 15 — `PUT /api/users/{userID}/active` · **8 of 22 endpoints done**
+- **Next task:** checkpoint 16 — `PUT /api/users/{userID}` (endpoint 7, BR-8.4.11 TOCTOU)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -23,7 +23,7 @@ guardrail docs carry the substance and are always attached.
 | `internal/auth` (argon2id)        | ✅ Complete — hashing + tests + app wiring        |
 | `cmd/seed`                        | ✅ Complete — 4 users seeded and verified         |
 | Structured logging (slog+context) | ✅ Complete — request IDs proven end to end       |
-| API implementation (22 endpoints) | 🔵 **In progress — 7 / 22**                       |
+| API implementation (22 endpoints) | 🔵 **In progress — 8 / 22**                       |
 
 ---
 
@@ -658,33 +658,84 @@ approver dropdown. No self-filter needed; the schema enforces it.
 
 ---
 
+### ✅ Checkpoint 15 — `PUT /api/users/{userID}/active` (endpoint 8 of 22)
+
+Admin-only, variation 3. **First path parameter and first row-level lock.**
+
+**Queries** — `GetUserForUpdate` (`SELECT ... FOR UPDATE`), `SetUserActiveStatus`
+(`UPDATE ... RETURNING *`), `ListActiveCCIDsForUser`.
+
+- **`GetUserForUpdate` is deliberately separate from `GetUserByID`.** Same SELECT, opposite
+  intent: `GetUserByID` runs in `middlewareAuth` on _every_ request and must **not** lock, or
+  every authenticated request would serialize through a row lock. The locking variant is for
+  write paths only.
+- **`ListActiveCCIDsForUser` returns IDs, not a count.** `len()` serves the guard and the
+  same rows populate the 409 body — a separate `COUNT(*)` would be a redundant round trip.
+  `sqlc.arg(user_id)` used twice binds **one** parameter to both predicates.
+
+**Handler** — `r.PathValue("userID")` + `uuid.Parse` → 400. `is_active` is a **`*bool`** so an
+absent field is distinguishable from an explicit `false`; `{}` is rejected rather than
+silently meaning "deactivate". (Same absent-vs-value problem Save Draft solves for real at
+endpoint 13 — rehearsed here on one field.)
+
+Order inside the transaction: `GetUserForUpdate` (locks) → **no-op check** → **CC guard** →
+update → audit → commit. Self-deactivation is rejected _before_ the transaction opens — no
+point locking a row to refuse something already known invalid.
+
+**The no-op path commits, returns 200 with the user, and writes nothing** — no update, no
+audit row. Commit rather than rollback: nothing was written, and committing releases the lock
+immediately. `audit_logs` records _changes_, and "false → false" isn't one.
+
+| Check                                                                                                         | Verified |
+| ------------------------------------------------------------------------------------------------------------- | -------- |
+| Deactivate → 200, `is_active: false`                                                                          | ✅       |
+| Repeat the same request → 200, **no audit row** (no-op)                                                       | ✅       |
+| Reactivate → 200, `is_active: true`                                                                           | ✅       |
+| `{}` → 400 · `{"is_active":"yes"}` → 400 · bad UUID → 400 · unknown user → 404                                | ✅       |
+| Self-deactivation → 400; self-*re*activation → 200 no-op                                                      | ✅       |
+| CC Owner → 403 · no token → 401                                                                               | ✅       |
+| **Two audit rows for three state-changing requests** (`UserDeactivated` true→false, `UserUpdated` false→true) | ✅       |
+| A deactivated user vanishes from `GET /api/approvers` and is refused at login                                 | ✅       |
+
+**Lesson — `SELECT ... FOR UPDATE`.** A transaction gives **atomicity**, not isolation from
+concurrent writers: under Read Committed a plain `SELECT` takes a snapshot and another
+session can update that row a millisecond later. `FOR UPDATE` is a _declaration of intent_ —
+"I'm reading this because I intend to modify it" — and Postgres holds a **row-level** lock
+until the transaction ends. Other `UPDATE`s and `FOR UPDATE` reads on that row **wait**;
+plain readers are never blocked, and other rows are unaffected. Without it, two concurrent
+deactivations would both read `true`, both decide "this is a change", and both write an audit
+row.
+
+**Lesson — sqlc does _not_ validate every column reference.** A typo (`updated_one` in an
+`UPDATE ... SET`) generated compiling Go containing broken SQL; it would have failed at
+runtime as a 500. **sqlc catches type and struct mismatches; only Postgres catches SQL
+correctness.** Run a new query through psql once before wiring the handler.
+
+**Also swept this checkpoint:** every handler's malformed-body branch now returns **400**, not
+500 — bad JSON is the client's fault (Blueprint §10).
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 15 — `PUT /api/users/{userID}/active` (endpoint 8, Admin)
+### ⬜ Checkpoint 16 — `PUT /api/users/{userID}` (endpoint 7, Admin) — the BR-8.4.11 fix
 
-Admin-only, variation 3. Body `{"is_active": bool}` — handles **deactivate and reactivate**
-(the API plan notes the BRD mandates deactivation and the toggle implies both).
+Admin-only, variation 3. Body carries **full_name and/or role** — **never email, never
+password** (BR-8.4.9). Closes the Users & Profile group.
 
-**New mechanic: path parameters.** Go 1.22+ gives this free —
-`mux.Handle("PUT /api/users/{userID}/active", ...)` then `r.PathValue("userID")`, parsed with
-`uuid.Parse` → 400 on a malformed UUID. Every remaining endpoint from #12 onward uses this.
+**The BR-8.4.11 TOCTOU fix (DB §8.2)** — one transaction:
+`GetUserForUpdate` (locks the row) → if the name changed, update + audit `UserUpdated` → if
+the role changed, `ListActiveCCIDsForUser`; if any exist, **409 listing the blocking CC-IDs**;
+otherwise update + audit `UserRoleChanged` → commit.
 
-Transaction (decision #18): load the target user (404 if absent) → `SetUserActive` → audit →
-commit.
+**The counterintuitive part:** a blocked role change must still **COMMIT**, because the
+**name change in the same request has to survive**. A 409 response that commits its
+transaction — the opposite of every other rejection path so far, all of which roll back.
 
-**Two decisions needed:**
-
-1. **`ck_audit_logs_action_type` has `UserDeactivated` but no `UserReactivated`.** Options:
-   audit reactivation as `UserUpdated` with `field_name='is_active'`, or don't audit it.
-   Leaning `UserUpdated` — an existing value, and the field/old/new columns carry the meaning.
-2. **Should an Admin be able to deactivate themselves?** Nothing forbids it, but locking the
-   only Admin out of the system is a real footgun. A `targetID == admin.ID` → 400 guard is
-   cheap. Not in any doc.
-
-**Then #7 `PUT /api/users/{userID}`** — the BR-8.4.11 TOCTOU fix: `SELECT … FOR UPDATE` on
-the user row plus the active-CC count, blocked role change → **409 listing the blocking
-CC-IDs** while the **name change in the same request still commits**. Gets a checkpoint to
-itself.
+Most of the machinery already exists from checkpoint 15 (`GetUserForUpdate`,
+`ListActiveCCIDsForUser`, the blocked-response shape, the `FOR UPDATE` reasoning). New: an
+update query for name/role, and **auditing only the fields that actually changed** — the same
+delta principle as the no-op branch, now across two independent fields.
 
 **Then, in API Endpoint Plan order:** CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
@@ -697,12 +748,12 @@ dashboard → signatures.
 Session decisions that now contradict a guardrail doc. Until amended, a future session may
 "correct" a deliberate choice back.
 
-| Doc                    | Change needed                                                                                                                                                                                                                                          |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `API_ENDPOINT_PLAN.md` | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                         |
-| `CONTEXT_HANDOFF.md`   | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                        |
-| BRD                    | Add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
-| DB Design doc          | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                |
+| Doc                    | Change needed                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_ENDPOINT_PLAN.md` | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                    |
+| `CONTEXT_HANDOFF.md`   | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                   |
+| BRD                    | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
+| DB Design doc          | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                           |
 
 ---
 
@@ -724,6 +775,8 @@ Settled in working sessions and binding. They exist nowhere else.
 | 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` and `bool` require the `pg_catalog.` prefix.** (`bool` was added at checkpoint 13, when the first nullable boolean _parameter_ appeared — no nullable boolean column exists in the schema.) Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                       |
 | 11  | **Password hashing uses `github.com/alexedwards/argon2id`, not raw `golang.org/x/crypto/argon2`**                                                                                                                                                                                                          | Blueprint §2 names the algorithm (argon2id), not a package, so the choice was open. The library already does PHC-string encoding, `crypto/rand` salting, parameter round-tripping and constant-time comparison — a reviewed implementation rather than hand-rolled crypto plumbing. Params are set **explicitly** (not `DefaultParams` in app code) so a library-default change can't silently alter hashing strength, and so the values are auditable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 12  | **Data delivered to handlers by two different mechanisms, chosen by failure mode: request logger via `context`, authenticated user via explicit argument**                                                                                                                                                 | Fills the Blueprint §15 logging gap. The rule: _match the delivery mechanism to what happens when the thing is missing._ A missing logger is harmless → `context` value with a `slog.Default()` fallback (`LoggerFrom`). A missing authenticated user is a security hole → explicit third argument on an `authedHandler` type, so forgetting auth is a **compile error**, not a runtime surprise — the compiler becomes an auth control, which matters for a regulated system. Not inconsistency: same principle, opposite stakes. (Considered and rejected: context for both, for surface consistency — it would trade a compile-time guarantee for a per-route discipline across 22 routes.) Logging is minimal per §0/§15: request ID + start/finish + errors; runtime level-filtering deferred (slog provides the levels regardless)                                                                                                                                                                                                                                |
+| 19  | **Deactivation is blocked while the user owns or is assigned to any CC not in `Closed`/`Cancelled`** → 409 listing the blocking CC-IDs. Reactivation skips the check entirely                                                                                                                              | **Fills a gap in the BRD, which restricts only _role_ changes** (§2.2, BR-8.4.11) and says nothing about deactivation — yet the harm is identical: a deactivated approver cannot log in, so their assigned CCs sit in `Pending Implementation Approval` with nobody able to action them, and **no reassignment endpoint exists** to recover. Not scope creep but closing an inconsistency in the requirements; the BRD needs amending (see pending-amendments). Reactivation can only _unblock_ stranded records, so the guard is deactivation-only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 20  | **`PUT /api/users/{userID}/active` details:** audit action type by direction (`UserDeactivated` true→false, `UserUpdated` with `field_name`/`old`/`new` false→true) · self-**de**activation blocked · a no-op writes **no** audit row · 200 with the user on both paths                                    | _Action types:_ `ck_audit_logs_action_type` has no `UserReactivated`, so the purpose-built value is used where it exists and the generic one where it doesn't; the field/old/new columns carry the meaning precisely. _Self-guard:_ the last Admin locking themselves out is unrecoverable through the API; self-*re*activation needs no guard (it's impossible to reach). _No-op:_ `audit_logs` records changes, and "false → false" isn't one — the branch commits (releasing the lock) rather than rolling back. _200 with the user:_ the `SELECT` is required anyway for the 404 check, the audit's old value and the no-op detection, so returning the object costs nothing and saves the frontend a re-fetch                                                                                                                                                                                                                                                                                                                                                      |
 | 17  | **Password policy: minimum 8 characters, with at least 1 lowercase, 1 uppercase, 1 digit and 1 special character.** Enforced in `validatePassword` (`helpers.go`) with **collect-all** reporting                                                                                                           | **No guardrail doc specifies a password policy** — this is a genuine spec gap being filled, and needs adding to the BRD (see pending-amendments). Without it `"a"` would have been accepted. Collect-all (every unmet rule in one message) rather than fail-first, matching BR-8.2.6's pattern for transition validation, so a user fixes everything in one pass. The log records only the _count_ of unmet rules, never which ones — knowing "had lowercase, no digits" is a weak hint about a password that may be retried with a small variation. An earlier draft used 4-of-each, which implies a 16-character minimum; relaxed to 1-of-each as the conventional baseline. **Passwords are never trimmed** anywhere — leading/trailing spaces are legitimate characters, and trimming at creation but not at login would silently create unusable accounts                                                                                                                                                                                                          |
 | 18  | **Writes and their audit rows are atomic — one transaction, all or nothing**                                                                                                                                                                                                                               | BR-8.4.9 requires all user-management actions to be logged. If the audit insert can fail while the write succeeds, the system can hold a change with no audit trail — unacceptable in a GxP context, where an unaudited change effectively did not happen. So `HandlerCreateUser` wraps the user insert and the `UserAdded` row in one transaction, introducing the `BeginTx`/`qtx` pattern earlier than the build order planned. Same pattern the transitions need for BR-8.8.6 (state change + signature + audit as one unit), so the rehearsal is on a small handler rather than T2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 15  | **`refreshInactivityWindow = 2 hours`, deliberately decoupled from the 30-minute access token.** This **overrides** `API_ENDPOINT_PLAN.md` endpoint 2, which specifies 30 minutes — the doc must be amended                                                                                                | `updated_on` is set at login and at every refresh, and a JWT is minted at exactly those same moments, so **JWT expiry ≡ `updated_on` + 30 min**. With both windows at 30 minutes the idle check fires at precisely the instant the JWT dies, meaning refresh can only ever succeed while the caller still holds a _valid_ JWT — the sliding window adds nothing beyond the JWT's own expiry, and session continuity rests entirely on the frontend timer never missing a beat. At 2 hours the two clocks do different jobs: the 30-min JWT bounds **credential exposure**, the 2-hour window bounds **unattended session length**, and a client that misses a refresh has real room to recover (making the 401-interceptor pattern a genuine fallback rather than theatre). The security cost is small because the idle window is the weakest of four controls — the short JWT limits exposure, `expires_at` caps the session at 24 h absolutely, and `middlewareAuth` re-checks `is_active` on every request. **Changes one constant; no schema change, no migration** |
@@ -747,6 +800,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 8   | **CC-ID gaps are expected and permanent.** `nextval()` is non-transactional, so a rolled-back or failed insert burns a number forever. Not a defect — the cost of collision-free IDs under concurrency — but QA will ask                                                                                                                                                                                                                                                                                                                                                                         | Behaviour note; may warrant a line in user documentation                                                           |
 | 9   | **`TIME` columns scanning into `*time.Time` is unverified at runtime.** `database/sql`'s `convertAssign` handles pointer-to-pointer natively, so `*string` and `*time.Time` are safe for `text`/`timestamptz`/`date` with lib/pq. But bare `TIME` (`implementation_window_start` / `_end`) may arrive from lib/pq as `[]byte` rather than `time.Time`, which would fail conversion. **First exposed when reading a CC with window times (≈ endpoint 12).** If it fails, the fix is a `column:` override to `string` plus parsing in the handler                                                  | Unverified — test at first read                                                                                    |
 | 10  | **Log rotation not implemented.** `logs/app.log` is append-only and grows unbounded. Fine for dev; production needs size/date-based rotation (e.g. lumberjack or logrotate) to avoid filling disk. Operational hardening, deliberately deferred (§0/§15 spirit — build the debugging value now, defer the ops hardening)                                                                                                                                                                                                                                                                         | Deferred; belongs in deployment notes                                                                              |
+| 15  | **The deactivation 409 path is untested.** `ListActiveCCIDsForUser` correctly returns zero rows against an empty `change_controls`, so the _unblocked_ path is verified — but the block itself has never fired. Testing it now would mean hand-fabricating a CC row (valid state + status pair + two user FKs) that the API never created. **Test properly once `POST /api/changecontrols` exists (≈ checkpoint 18):** create a CC, assign it to a user, then try to deactivate them                                                                                                             | Deferred to the CC endpoints                                                                                       |
 | 12  | **Frontend must refresh proactively — backend contract assumes it.** The client needs a timer firing at roughly **24 minutes** (~80 % of the 30-min access token's life), plus a 401-interceptor that refreshes and retries once as a safety net. Without the timer, users hit surprise logouts. This is **frontend responsibility** and needs stating in the BRD / frontend handover                                                                                                                                                                                                            | Open — needs documenting for the frontend                                                                          |
 | 13  | **Two refresh gates are unverified.** Absolute expiry (`now > expires_at`, 24 h) and inactivity timeout (`now − updated_on > 2 h`) cannot be exercised without waiting. Both are single comparisons against visible columns, so risk is low — but they have not been observed firing. Could be tested by hand-updating a row's `expires_at` / `updated_on` in psql                                                                                                                                                                                                                               | Unverified                                                                                                         |
 | 14  | **Dead `refresh_tokens` rows accumulate forever.** Expired and revoked rows are never removed. Eventual hygiene is a periodic `DELETE ... WHERE expires_at < NOW() - INTERVAL '30 days' OR revoked_at < ...`, as a cron or a `cmd/cleanup` command. Irrelevant at current volume (a few users, a handful of logins a day); deferred alongside log rotation (flag #10)                                                                                                                                                                                                                            | Deferred                                                                                                           |
