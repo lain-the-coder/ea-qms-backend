@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 16 — `PUT /api/users/{userID}` · **9 of 22 · Groups 1 & 2 COMPLETE**
-- **Next task:** checkpoint 17 — Group 3, the change controls themselves (endpoints 10–13)
+- **Last checkpoint:** 17 — `POST /api/changecontrols` · **10 of 22**
+- **Next task:** checkpoint 18 — `GET /api/changecontrols/{ccID}` (endpoint 12, the 50-field read)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -25,7 +25,8 @@ guardrail docs carry the substance and are always attached.
 | Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end       |
 | API — Group 1 Auth (1–3)            | ✅ Complete                                       |
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
-| API — Groups 3–7 (10–22)            | ⬜ **Next** — change controls, workflow, files    |
+| API — Group 3 CCs (10–13)           | 🔵 **In progress — 1 / 4** (create ✅)            |
+| API — Groups 4–7 (14–22)            | ⬜ Dashboard, workflow, files, signatures         |
 
 ---
 
@@ -766,26 +767,94 @@ and several audit rows that must all cohere under one timestamp in one transacti
 
 ---
 
+### ✅ Checkpoint 17 — `POST /api/changecontrols` (endpoint 10 of 22)
+
+First business-domain endpoint. **CC Owner only** — FR-6.1.2 rejects Approver, Viewer **and
+Admin**; creating change controls is not an administrative function, which is the first time
+Admin has been the _wrong_ role.
+
+**`constants.go`** — the six `ck_cc_current_state` values and the four approval statuses.
+
+**`CreateChangeControl` inserts exactly two columns** — `change_owner_id` and
+`last_updated_by_id`, both the creating user. The other six fields FR-6.1.4 requires all come
+from schema defaults set back in checkpoint 2:
+
+| FR-6.1.4 field                 | Source                                         |
+| ------------------------------ | ---------------------------------------------- |
+| CC-ID                          | `cc_number_seq` → `GENERATED ALWAYS AS` column |
+| Current State                  | `DEFAULT 'Initiated'`                          |
+| Change Owner / Last Updated By | the two parameters                             |
+| Created On / Last Updated On   | `DEFAULT NOW()`                                |
+| Both approval statuses         | `DEFAULT 'Not Submitted'`                      |
+
+**`RETURNING *` is how `cc_id` gets back** — the insert never mentions it. **No Go code
+participates in ID generation**, which is exactly what makes it collision-free under
+concurrency (DB §8.1).
+
+**The handler takes no request body at all** — the entire input is the authenticated
+identity. BRD field 3: `change_owner` is system-generated from the creator and immutable;
+US-CC-01 confirms creation opens an _empty_ form, which Save Draft then fills.
+
+**Response is the eight FR-6.1.4 fields plus `id` and the owner's name**, not the full 50-field
+record (decision #23).
+
+| Check                                                                  | Verified |
+| ---------------------------------------------------------------------- | -------- |
+| CC-001 then CC-002 — sequential, `LPAD` guard working                  | ✅       |
+| State `Initiated`, both statuses `Not Submitted`, 42 fields NULL       | ✅       |
+| Admin → 403, Approver → 403, Viewer → 403                              | ✅       |
+| Audit `ChangeControl` / `Created`, `entity_id` = the record's **UUID** | ✅       |
+
+**Flag #15 closed.** With real CCs existing, the two guards written in checkpoints 15–16
+finally fired: deactivating and role-changing the CC Owner both returned **409 listing CC-001
+and CC-002**, while a name-only change **and a name change with an unchanged role in the
+body** both succeeded — the latter being the exact scenario the "was it sent vs did it
+change" fix addressed, previously untestable.
+
+**Unplanned proof:** after renaming the CC Owner, the audit rows still read
+`performed_by_name: "Default CC Owner"`. That's the denormalized snapshot from DB §2.3 doing
+its job — the trail records who acted _at the time_, not who they have since become. A live
+join would have silently rewritten history.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 17 — Group 3, change controls (endpoints 10–13)
+### ⬜ Checkpoint 18 — `GET /api/changecontrols/{ccID}` (endpoint 12)
 
-The first business-domain endpoints. Four of them, and **two carry hidden complexity**:
+Build order is **create → get → list → save draft**, so the read comes before the list — get
+builds the 50-field mapper that list then reuses.
 
-| #   | Endpoint                         | Note                                                                                                                                                                                                                                                                                             |
-| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 10  | `POST /api/changecontrols`       | CC Owner only. Creates in `Initiated` with both statuses `Not Submitted`. **First use of the `cc_number_seq` + generated `cc_id`** — the insert never mentions `cc_id`; `RETURNING *` hands it back (DB §8.1). Audit `Created`. Not idempotent by design: every call burns a CC number (flag #8) |
-| 11  | `GET /api/changecontrols`        | Filterable by state / owner / approver plus pagination. **Four optional filters → the `sqlc.narg` + `IS NULL OR` pattern from checkpoint 13 is what avoids sixteen hand-written query permutations.** Role-scoped: a CC Owner sees their own, Approver sees assigned, Admin/Viewer see all       |
-| 12  | `GET /api/changecontrols/{ccID}` | The 50-field read. **First place flag #9 gets tested** — the two `TIME` columns scanning into `*time.Time` is unverified with lib/pq. Needs the full response mapper (rule 3: never marshal the DB struct)                                                                                       |
-| 13  | `PUT /api/changecontrols/{ccID}` | **Save Draft — the hard one.** Must distinguish _field absent_ / `"field": null` / `"field": "value"` across ~40 nullable fields, which standard `json.Decode` cannot do. **No presence validation** (that happens only at transitions). Owner-only, `Initiated` state only                      |
+Authenticated, **any role** may view (BR-8.4.7 — the server guards _writes_, not reads;
+field-level display is the frontend's job per the Security Matrix).
 
-**Groundwork this group needs:** the six state constants (`ck_cc_current_state`), the two
-approval-status constants, a 50-field response mapper, and the CC-scoped queries. The
-`*string`/`*bool` absent-vs-value pattern rehearsed in checkpoints 15–16 is what endpoint 13
-needs at scale.
+**Three things make this bigger than it looks:**
 
-**Then:** **T2 submit — the first full transition, written fully inline** (§0: no generic
-engine until three exist) → T3, T4/5 → files → T6 → T7/8 → dashboard → signatures. CC create/get/list/save-draft → **T2 submit, the first
+1. **The 50-field response mapper.** Rule 3 forbids marshalling the DB struct. 40 of the 50
+   fields are pointers, so they marshal as `null` when absent — which is what the frontend
+   wants. Tedious but mechanical, and endpoints 11 and 13 both reuse it.
+2. **Five user references need names:** `change_owner_id`, `last_updated_by_id`,
+   `assigned_approver_id`, `implementation_approval_by_id`, `final_approval_by_id`. That is
+   **five `LEFT JOIN`s** to `users` (LEFT, because four are nullable). Decide flat
+   (`change_owner_id` + `change_owner_name`) vs nested (`change_owner: {id, full_name}`) —
+   with five references on a 50-field record, nested reads better, but flat matches the
+   columns and the create response.
+3. **Flag #9 finally gets tested.** The two `TIME` columns (`implementation_window_start` /
+   `_end`) scanning into `*time.Time` has never been exercised — lib/pq may hand back
+   `[]byte`. Both are NULL right now, so the failure would only surface after Save Draft
+   populates them. **Test deliberately: set one in psql, then read the record.**
+
+**Decision needed:** is `{ccID}` in the URL the **business key** (`/api/changecontrols/CC-001`,
+`WHERE cc_id = $1`, served by `uq_change_controls_cc_id`) or the **UUID**? The plan's naming
+and the field reference both point at the business key; it is also what users say out loud.
+This choice propagates to endpoints 13, all seven transitions, files and signatures — settle
+it here.
+
+**Then:** #11 list (four optional filters → the `sqlc.narg` pattern; note the plan specifies
+`?page=`/`?page_size=` whereas `GET /api/users` was built with `limit`/`offset` — reconcile) →
+#13 Save Draft (absent vs null vs value across ~40 fields) → **T2 submit, the first full
+transition, written fully inline** (§0) → T3, T4/5 → files → T6 → T7/8 → dashboard →
+signatures. CC create/get/list/save-draft → **T2 submit, the first
 full transition, written inline** → T3, T4/5 (extract only then) → files → T6 → T7/8 →
 dashboard → signatures.
 
@@ -825,6 +894,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 10  | **Nullable columns are forced to Go pointers via explicit sqlc `db_type` overrides, keeping `lib/pq`**                                                                                                                                                                                                     | **Resolves a real contradiction between Blueprint §2 and §4.** sqlc's `emit_pointers_for_null_types` is _silently ignored_ unless `sql_package` is `pgx/v4` or `pgx/v5` — so §2 (lib/pq, deliberate) and §4 (pointers) cannot both hold as written. Rejected: switching to pgx (abandons §2's reasoning and changes the `BeginTx`/`WithTx` shape) and accepting `sql.NullXxx` (pays every cost §4 argued against — garbage JSON, a ×40 mapping loop, hand-rolled three-state draft logic). Five overrides give both. **The `db_type` spellings are not uniform and were found empirically: `text`, `timestamptz`, `date`, `uuid` bare; `time` and `bool` require the `pg_catalog.` prefix.** (`bool` was added at checkpoint 13, when the first nullable boolean _parameter_ appeared — no nullable boolean column exists in the schema.) Also: omit the `package` key when the import path already ends in the package name, or sqlc emits duplicate imports and the build fails                                                                                       |
 | 11  | **Password hashing uses `github.com/alexedwards/argon2id`, not raw `golang.org/x/crypto/argon2`**                                                                                                                                                                                                          | Blueprint §2 names the algorithm (argon2id), not a package, so the choice was open. The library already does PHC-string encoding, `crypto/rand` salting, parameter round-tripping and constant-time comparison — a reviewed implementation rather than hand-rolled crypto plumbing. Params are set **explicitly** (not `DefaultParams` in app code) so a library-default change can't silently alter hashing strength, and so the values are auditable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 12  | **Data delivered to handlers by two different mechanisms, chosen by failure mode: request logger via `context`, authenticated user via explicit argument**                                                                                                                                                 | Fills the Blueprint §15 logging gap. The rule: _match the delivery mechanism to what happens when the thing is missing._ A missing logger is harmless → `context` value with a `slog.Default()` fallback (`LoggerFrom`). A missing authenticated user is a security hole → explicit third argument on an `authedHandler` type, so forgetting auth is a **compile error**, not a runtime surprise — the compiler becomes an auth control, which matters for a regulated system. Not inconsistency: same principle, opposite stakes. (Considered and rejected: context for both, for surface consistency — it would trade a compile-time guarantee for a per-route discipline across 22 routes.) Logging is minimal per §0/§15: request ID + start/finish + errors; runtime level-filtering deferred (slog provides the levels regardless)                                                                                                                                                                                                                                |
+| 23  | **`POST /api/changecontrols` returns only the eight FR-6.1.4 system fields (plus `id` and the owner's name), not the full 50-field record.** User names accompany every user ID in CC responses; both are returned                                                                                         | _Minimal response:_ at creation the other 42 fields are null and the client just created the record, so it can render the empty form with **no second round trip**. The full mapper is then built at endpoint 12 where it is genuinely required, rather than speculatively here (§0). _Names alongside IDs:_ the frontend **cannot** resolve a UUID to a name on its own — a per-record `GET /api/users/{id}` would be N+1 on a list, and caching all users is impossible for a Viewer (that endpoint is Admin-only). _Both, not either:_ **ID for comparisons** (`cc.change_owner_id === currentUser.id` decides whether Save Draft renders — names are unstable, since two people can share one and this API can change them) and **name for display**                                                                                                                                                                                                                                                                                                                |
 | 22  | **A blocked role change saves _nothing_ — the request is all-or-nothing.** The CC guard runs **before** any write                                                                                                                                                                                          | **Overrides two guardrail documents**, unlike every other decision so far: BR-8.4.11's scope note and **DB Design §8.2** both specify that _"a name change on the same request must still succeed... the handler applies the name update regardless and gates only the role update behind the active-record check."_ That design means a 409 response whose transaction **commits**, which then requires the 409 body to report what was saved so the UI can update the row, and a banner reading "the name change has been saved". All-or-nothing removes that whole branch of complexity. **The practical loss is small:** a name-only edit is unaffected (`roleChanged` is false, so the guard never runs), and the only case that changes is "changed both, role blocked" — where the Admin simply retries with the name alone. **Both documents need amending** (see pending-amendments), and this also retires frontend note F3                                                                                                                                   |
 | 21  | **An Admin may change their own _name_ but not their own _role_** (`PUT /api/users/{userID}` — checkpoint 16)                                                                                                                                                                                              | Same lockout footgun as self-deactivation (decision #20): an Admin demoting themselves to Viewer loses user-management access, and if they are the last Admin nobody can restore it — unrecoverable through the API. Blocking only the _role_ half is the minimum guard: the name change is harmless and the prototype's edit row offers both fields together. Note the prototype goes further and omits the pencil entirely for `(you)`; the API is deliberately less restrictive, since a self-name-change is legitimate and the API must not depend on UI discipline for the part that matters                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 19  | **Deactivation is blocked while the user owns or is assigned to any CC not in `Closed`/`Cancelled`** → 409 listing the blocking CC-IDs. Reactivation skips the check entirely                                                                                                                              | **Fills a gap in the BRD, which restricts only _role_ changes** (§2.2, BR-8.4.11) and says nothing about deactivation — yet the harm is identical: a deactivated approver cannot log in, so their assigned CCs sit in `Pending Implementation Approval` with nobody able to action them, and **no reassignment endpoint exists** to recover. Not scope creep but closing an inconsistency in the requirements; the BRD needs amending (see pending-amendments). Reactivation can only _unblock_ stranded records, so the guard is deactivation-only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -870,7 +940,7 @@ into the UI build / handover rather than being buried in the flags table.
 | 9   | **`TIME` columns scanning into `*time.Time` is unverified at runtime.** `database/sql`'s `convertAssign` handles pointer-to-pointer natively, so `*string` and `*time.Time` are safe for `text`/`timestamptz`/`date` with lib/pq. But bare `TIME` (`implementation_window_start` / `_end`) may arrive from lib/pq as `[]byte` rather than `time.Time`, which would fail conversion. **First exposed when reading a CC with window times (≈ endpoint 12).** If it fails, the fix is a `column:` override to `string` plus parsing in the handler                                                  | Unverified — test at first read                                                                                    |
 | 10  | **Log rotation not implemented.** `logs/app.log` is append-only and grows unbounded. Fine for dev; production needs size/date-based rotation (e.g. lumberjack or logrotate) to avoid filling disk. Operational hardening, deliberately deferred (§0/§15 spirit — build the debugging value now, defer the ops hardening)                                                                                                                                                                                                                                                                         | Deferred; belongs in deployment notes                                                                              |
 | 16  | **No CC reassignment endpoint exists.** If a CC's assigned approver becomes unavailable — deactivated by a route that bypasses the guard (a direct DB edit), or simply unreachable — the record has **no recovery path**: it sits in `Pending Implementation Approval` with nobody able to action it. Decision #19's guard prevents the API from _creating_ this state, but cannot repair one. Out of documented scope for Phase 1                                                                                                                                                               | Noted; Phase 2 candidate                                                                                           |
-| 15  | **The deactivation 409 path is untested.** `ListActiveCCIDsForUser` correctly returns zero rows against an empty `change_controls`, so the _unblocked_ path is verified — but the block itself has never fired. Testing it now would mean hand-fabricating a CC row (valid state + status pair + two user FKs) that the API never created. **Test properly once `POST /api/changecontrols` exists (≈ checkpoint 18):** create a CC, assign it to a user, then try to deactivate them                                                                                                             | Deferred to the CC endpoints                                                                                       |
+| 15  | ~~**The deactivation 409 path is untested.**~~ **CLOSED at checkpoint 17.** With CC-001 and CC-002 created, both guards fired correctly: deactivating and role-changing their owner returned 409 listing both CC-IDs, while a name-only change and a name change with an unchanged role both succeeded                                                                                                                                                                                                                                                                                           | **Closed**                                                                                                         |
 | 12  | **Frontend must refresh proactively — backend contract assumes it.** The client needs a timer firing at roughly **24 minutes** (~80 % of the 30-min access token's life), plus a 401-interceptor that refreshes and retries once as a safety net. Without the timer, users hit surprise logouts. This is **frontend responsibility** and needs stating in the BRD / frontend handover                                                                                                                                                                                                            | Open — needs documenting for the frontend                                                                          |
 | 13  | **Two refresh gates are unverified.** Absolute expiry (`now > expires_at`, 24 h) and inactivity timeout (`now − updated_on > 2 h`) cannot be exercised without waiting. Both are single comparisons against visible columns, so risk is low — but they have not been observed firing. Could be tested by hand-updating a row's `expires_at` / `updated_on` in psql                                                                                                                                                                                                                               | Unverified                                                                                                         |
 | 14  | **Dead `refresh_tokens` rows accumulate forever.** Expired and revoked rows are never removed. Eventual hygiene is a periodic `DELETE ... WHERE expires_at < NOW() - INTERVAL '30 days' OR revoked_at < ...`, as a cron or a `cmd/cleanup` command. Irrelevant at current volume (a few users, a handful of logins a day); deferred alongside log rotation (flag #10)                                                                                                                                                                                                                            | Deferred                                                                                                           |
