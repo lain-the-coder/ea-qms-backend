@@ -26,3 +26,21 @@ const (
 	actionSignatureCaptured = "SignatureCaptured"
 	actionSignatureFailed   = "SignatureFailed"
 )
+
+// Change control states — ck_cc_current_state
+const (
+	stateInitiated            = "Initiated"
+	statePendingImplApproval  = "Pending Implementation Approval"
+	stateInImplementation     = "In Implementation"
+	statePendingFinalApproval = "Pending Final Approval"
+	stateClosed               = "Closed"
+	stateCancelled            = "Cancelled"
+)
+
+// Approval statuses — ck_cc_impl_approval_status / ck_cc_final_approval_status
+const (
+	approvalNotSubmitted = "Not Submitted"
+	approvalPending      = "Pending"
+	approvalApproved     = "Approved"
+	approvalNA           = "N/A"
+)

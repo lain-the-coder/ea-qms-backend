@@ -81,20 +81,25 @@ func main() {
 		dummyHash: dummyHash,
 	}
 
-	// routes
+	// authentication routes
 	mux.Handle("POST /api/login", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
 	mux.Handle("POST /api/refresh", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRefresh)))
 	mux.Handle("POST /api/revoke", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRevoke)))
 
+	// user routes
 	mux.Handle("GET /api/me", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
 	mux.Handle("GET /api/approvers", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListApprovers)))
-
 	mux.Handle("POST /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser))))
 	mux.Handle("GET /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerListUsers))))
 	mux.Handle("PUT /api/users/{userID}/active",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus))))
 	mux.Handle("PUT /api/users/{userID}",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserDetails))))
+
+	// change control routes
+	mux.Handle("POST /api/changecontrols",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleCCOwner, cfg.HandlerCreateChangeControl))))
+
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,
