@@ -99,6 +99,8 @@ func main() {
 	// change control routes
 	mux.Handle("POST /api/changecontrols",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleCCOwner, cfg.HandlerCreateChangeControl))))
+	mux.Handle("GET /api/changecontrols/{ccID}",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetChangeControl)))
 
 	server := &http.Server{
 		Addr:    ":1304",

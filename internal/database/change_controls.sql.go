@@ -80,6 +80,95 @@ func (q *Queries) CreateChangeControl(ctx context.Context, arg CreateChangeContr
 	return i, err
 }
 
+const getChangeControlByCcID = `-- name: GetChangeControlByCcID :one
+SELECT
+    cc.id, cc.cc_number, cc.cc_id, cc.current_state, cc.change_owner_id, cc.last_updated_by_id, cc.created_on, cc.last_updated_on, cc.change_title, cc.change_description, cc.change_type, cc.change_category, cc.department_function, cc.affected_systems_modules, cc.proposed_implementation_date, cc.target_closure_date, cc.implementation_window_start, cc.implementation_window_end, cc.reason_for_change, cc.business_impact, cc.expected_downtime, cc.requires_testing, cc.requires_training, cc.risk_rationale, cc.key_risks_mitigations, cc.high_level_implementation_plan, cc.validation_approach, cc.success_criteria, cc.rollback_backout_plan, cc.actual_implementation_date, cc.post_implementation_issues, cc.implementation_summary, cc.deviations_from_plan, cc.validation_performed, cc.assigned_approver_id, cc.comments_for_approver, cc.decision, cc.risk_level, cc.decision_comments, cc.implementation_approval_by_id, cc.implementation_approval_on, cc.final_decision, cc.final_comments, cc.final_approval_by_id, cc.final_approval_on, cc.implementation_approval_status, cc.final_approval_status, cc.actual_closure_date, cc.comments, cc.cancellation_reason,
+    owner.full_name        AS owner_name,
+    updater.full_name      AS updater_name,
+    approver.full_name     AS approver_name,
+    impl_by.full_name      AS impl_approval_by_name,
+    final_by.full_name     AS final_approval_by_name
+FROM change_controls cc
+    JOIN      users owner     ON owner.id     = cc.change_owner_id
+    JOIN      users updater   ON updater.id   = cc.last_updated_by_id
+    LEFT JOIN users approver  ON approver.id  = cc.assigned_approver_id
+    LEFT JOIN users impl_by   ON impl_by.id   = cc.implementation_approval_by_id
+    LEFT JOIN users final_by  ON final_by.id  = cc.final_approval_by_id
+WHERE cc.cc_id = $1
+`
+
+type GetChangeControlByCcIDRow struct {
+	ChangeControl       ChangeControl
+	OwnerName           string
+	UpdaterName         string
+	ApproverName        *string
+	ImplApprovalByName  *string
+	FinalApprovalByName *string
+}
+
+func (q *Queries) GetChangeControlByCcID(ctx context.Context, ccID string) (GetChangeControlByCcIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getChangeControlByCcID, ccID)
+	var i GetChangeControlByCcIDRow
+	err := row.Scan(
+		&i.ChangeControl.ID,
+		&i.ChangeControl.CcNumber,
+		&i.ChangeControl.CcID,
+		&i.ChangeControl.CurrentState,
+		&i.ChangeControl.ChangeOwnerID,
+		&i.ChangeControl.LastUpdatedByID,
+		&i.ChangeControl.CreatedOn,
+		&i.ChangeControl.LastUpdatedOn,
+		&i.ChangeControl.ChangeTitle,
+		&i.ChangeControl.ChangeDescription,
+		&i.ChangeControl.ChangeType,
+		&i.ChangeControl.ChangeCategory,
+		&i.ChangeControl.DepartmentFunction,
+		&i.ChangeControl.AffectedSystemsModules,
+		&i.ChangeControl.ProposedImplementationDate,
+		&i.ChangeControl.TargetClosureDate,
+		&i.ChangeControl.ImplementationWindowStart,
+		&i.ChangeControl.ImplementationWindowEnd,
+		&i.ChangeControl.ReasonForChange,
+		&i.ChangeControl.BusinessImpact,
+		&i.ChangeControl.ExpectedDowntime,
+		&i.ChangeControl.RequiresTesting,
+		&i.ChangeControl.RequiresTraining,
+		&i.ChangeControl.RiskRationale,
+		&i.ChangeControl.KeyRisksMitigations,
+		&i.ChangeControl.HighLevelImplementationPlan,
+		&i.ChangeControl.ValidationApproach,
+		&i.ChangeControl.SuccessCriteria,
+		&i.ChangeControl.RollbackBackoutPlan,
+		&i.ChangeControl.ActualImplementationDate,
+		&i.ChangeControl.PostImplementationIssues,
+		&i.ChangeControl.ImplementationSummary,
+		&i.ChangeControl.DeviationsFromPlan,
+		&i.ChangeControl.ValidationPerformed,
+		&i.ChangeControl.AssignedApproverID,
+		&i.ChangeControl.CommentsForApprover,
+		&i.ChangeControl.Decision,
+		&i.ChangeControl.RiskLevel,
+		&i.ChangeControl.DecisionComments,
+		&i.ChangeControl.ImplementationApprovalByID,
+		&i.ChangeControl.ImplementationApprovalOn,
+		&i.ChangeControl.FinalDecision,
+		&i.ChangeControl.FinalComments,
+		&i.ChangeControl.FinalApprovalByID,
+		&i.ChangeControl.FinalApprovalOn,
+		&i.ChangeControl.ImplementationApprovalStatus,
+		&i.ChangeControl.FinalApprovalStatus,
+		&i.ChangeControl.ActualClosureDate,
+		&i.ChangeControl.Comments,
+		&i.ChangeControl.CancellationReason,
+		&i.OwnerName,
+		&i.UpdaterName,
+		&i.ApproverName,
+		&i.ImplApprovalByName,
+		&i.FinalApprovalByName,
+	)
+	return i, err
+}
+
 const listActiveCCIDsForUser = `-- name: ListActiveCCIDsForUser :many
 SELECT cc_id FROM change_controls
 WHERE (change_owner_id = $1 OR assigned_approver_id = $1)
