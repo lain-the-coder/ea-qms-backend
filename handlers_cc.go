@@ -90,6 +90,26 @@ type ChangeControlResponse struct {
 	CancellationReason *string `json:"cancellation_reason"`
 }
 
+type ChangeControlSummary struct {
+	ID                   uuid.UUID  `json:"id"`
+	CcID                 string     `json:"cc_id"`
+	ChangeTitle          *string    `json:"change_title"`
+	CurrentState         string     `json:"current_state"`
+	ChangeOwnerID        uuid.UUID  `json:"change_owner_id"`
+	ChangeOwnerName      string     `json:"change_owner_name"`
+	AssignedApproverID   *uuid.UUID `json:"assigned_approver_id"`
+	AssignedApproverName *string    `json:"assigned_approver_name"`
+	CreatedOn            time.Time  `json:"created_on"`
+	LastUpdatedOn        time.Time  `json:"last_updated_on"`
+}
+
+type ListChangeControlsResponse struct {
+	ChangeControls []ChangeControlSummary `json:"change_controls"`
+	Total          int64                  `json:"total"`
+	Limit          int32                  `json:"limit"`
+	Offset         int32                  `json:"offset"`
+}
+
 func (cfg *apiConfig) HandlerCreateChangeControl(w http.ResponseWriter, r *http.Request, owner database.User) {
 	type CreateCCResponse struct {
 		ID                           uuid.UUID `json:"id"`
@@ -260,4 +280,113 @@ func (cfg *apiConfig) HandlerGetChangeControl(w http.ResponseWriter, r *http.Req
 	}
 	log.Info("change control retrieved", "cc_id", row.ChangeControl.CcID, "state", row.ChangeControl.CurrentState)
 	respondWithJSON(w, http.StatusOK, resBody)
+}
+
+func (cfg *apiConfig) HandlerListChangeControls(w http.ResponseWriter, r *http.Request, user database.User) {
+	log := logging.LoggerFrom(r.Context())
+	q := r.URL.Query()
+	limit, offset, err := parsePagination(q)
+	if err != nil {
+		log.Warn("CCs retrieval failed", "reason", "invalid pagination", "error", err,
+			"limit_param", q.Get("limit"), "offset_param", q.Get("offset"))
+		respondWithError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var ownerID *uuid.UUID
+	if q.Get("owner") == "me" {
+		ownerID = &user.ID
+	}
+	var assignedID *uuid.UUID
+	if q.Get("assigned") == "me" {
+		assignedID = &user.ID
+	}
+	var state *string
+	if s := strings.TrimSpace(q.Get("state")); s != "" {
+		switch s {
+		case stateInitiated, statePendingImplApproval, stateInImplementation, statePendingFinalApproval, stateClosed, stateCancelled:
+			state = &s
+		default:
+			log.Warn("CCs retrieval failed", "reason", "invalid state parameter value", "state", s)
+			respondWithError(w, "Invalid state", http.StatusBadRequest)
+			return
+		}
+	}
+	var createdAfter *time.Time
+	if s := strings.TrimSpace(q.Get("created_after")); s != "" {
+		t, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			log.Warn("CCs retrieval failed", "reason", "invalid created_after parameter value", "created_after", s, "error", err)
+			respondWithError(w, "created_after must be YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		createdAfter = &t
+	}
+	var createdBefore *time.Time
+	if s := strings.TrimSpace(q.Get("created_before")); s != "" {
+		t, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			log.Warn("CCs retrieval failed", "reason", "invalid created_before parameter value", "created_before", s, "error", err)
+			respondWithError(w, "created_before must be YYYY-MM-DD", http.StatusBadRequest)
+			return
+		}
+		createdBefore = &t
+	}
+	var search *string
+	if s := strings.TrimSpace(q.Get("search")); s != "" {
+		search = &s
+	}
+	params := database.ListChangeControlsParams{
+		OwnerID:            ownerID,
+		AssignedApproverID: assignedID,
+		State:              state,
+		CreatedAfter:       createdAfter,
+		CreatedBefore:      createdBefore,
+		Search:             search,
+		Offset:             offset,
+		Limit:              limit,
+	}
+	ccs, err := cfg.db.ListChangeControls(r.Context(), params)
+	if err != nil {
+		log.Error("CCs retrieval failed", "reason", "db ccs list retrieval failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	total, err := cfg.db.CountChangeControls(r.Context(), database.CountChangeControlsParams{
+		OwnerID:            ownerID,
+		AssignedApproverID: assignedID,
+		State:              state,
+		CreatedAfter:       createdAfter,
+		CreatedBefore:      createdBefore,
+		Search:             search,
+	})
+	if err != nil {
+		log.Error("CCs retrieval failed", "reason", "db cc count failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	ccResponses := make([]ChangeControlSummary, 0, len(ccs))
+	for _, cc := range ccs {
+		ccResponses = append(ccResponses, ChangeControlSummary{
+			ID:                   cc.ID,
+			CcID:                 cc.CcID,
+			ChangeTitle:          cc.ChangeTitle,
+			CurrentState:         cc.CurrentState,
+			ChangeOwnerID:        cc.ChangeOwnerID,
+			ChangeOwnerName:      cc.OwnerName,
+			AssignedApproverID:   cc.AssignedApproverID,
+			AssignedApproverName: cc.ApproverName,
+			CreatedOn:            cc.CreatedOn,
+			LastUpdatedOn:        cc.LastUpdatedOn,
+		})
+	}
+	log.Info("change controls listed", "count", len(ccs), "total", total,
+		"limit", limit, "offset", offset,
+		"filtered", ownerID != nil || assignedID != nil || state != nil ||
+			createdAfter != nil || createdBefore != nil || search != nil)
+	respondWithJSON(w, http.StatusOK, ListChangeControlsResponse{
+		ChangeControls: ccResponses,
+		Total:          total,
+		Limit:          limit,
+		Offset:         offset,
+	})
 }

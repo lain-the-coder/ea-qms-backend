@@ -24,3 +24,78 @@ FROM change_controls cc
     LEFT JOIN users impl_by   ON impl_by.id   = cc.implementation_approval_by_id
     LEFT JOIN users final_by  ON final_by.id  = cc.final_approval_by_id
 WHERE cc.cc_id = $1;
+
+-- name: ListChangeControls :many
+SELECT
+    cc.id,
+    cc.cc_id,
+    cc.change_title,
+    cc.current_state, 
+    cc.change_owner_id, 
+    owner.full_name                                 AS owner_name, 
+    cc.assigned_approver_id, approver.full_name     AS approver_name, 
+    cc.created_on, 
+    cc.last_updated_on
+FROM change_controls cc
+    JOIN        users owner     ON owner.id = cc.change_owner_id
+    LEFT JOIN   users approver  ON approver.id  = cc.assigned_approver_id
+WHERE 1=1
+  -- 1. Owner filter (UUID)
+  AND (sqlc.narg('owner_id')::uuid IS NULL 
+       OR cc.change_owner_id = sqlc.narg('owner_id'))
+
+  -- 2. Assigned Approver filter (UUID)
+  AND (sqlc.narg('assigned_approver_id')::uuid IS NULL 
+       OR cc.assigned_approver_id = sqlc.narg('assigned_approver_id'))
+
+  -- 3. State filter (text)
+  AND (sqlc.narg('state')::text IS NULL 
+       OR cc.current_state = sqlc.narg('state'))
+
+  -- 4. Created after filter (date, inclusive >=)
+  AND (sqlc.narg('created_after')::date IS NULL 
+       OR cc.created_on >= sqlc.narg('created_after'))
+
+  -- 5. Created before filter (date, exclusive < with +1 day buffer)
+  AND (sqlc.narg('created_before')::date IS NULL 
+       OR cc.created_on < sqlc.narg('created_before') + INTERVAL '1 day')
+
+  -- 6. Search filter (text across multiple columns)
+  AND (sqlc.narg('search')::text IS NULL 
+       OR cc.cc_id          ILIKE '%' || sqlc.narg('search') || '%'
+       OR cc.change_title   ILIKE '%' || sqlc.narg('search') || '%'
+       OR owner.full_name   ILIKE '%' || sqlc.narg('search') || '%')
+ORDER BY cc.last_updated_on DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: CountChangeControls :one
+SELECT COUNT(*) 
+FROM change_controls cc
+    JOIN        users owner     ON owner.id = cc.change_owner_id
+    LEFT JOIN   users approver  ON approver.id  = cc.assigned_approver_id
+WHERE 1=1
+  -- 1. Owner filter (UUID)
+  AND (sqlc.narg('owner_id')::uuid IS NULL 
+       OR cc.change_owner_id = sqlc.narg('owner_id'))
+
+  -- 2. Assigned Approver filter (UUID)
+  AND (sqlc.narg('assigned_approver_id')::uuid IS NULL 
+       OR cc.assigned_approver_id = sqlc.narg('assigned_approver_id'))
+
+  -- 3. State filter (text)
+  AND (sqlc.narg('state')::text IS NULL 
+       OR cc.current_state = sqlc.narg('state'))
+
+  -- 4. Created after filter (date, inclusive >=)
+  AND (sqlc.narg('created_after')::date IS NULL 
+       OR cc.created_on >= sqlc.narg('created_after'))
+
+  -- 5. Created before filter (date, exclusive < with +1 day buffer)
+  AND (sqlc.narg('created_before')::date IS NULL 
+       OR cc.created_on < sqlc.narg('created_before') + INTERVAL '1 day')
+
+  -- 6. Search filter (text across multiple columns)
+  AND (sqlc.narg('search')::text IS NULL 
+       OR cc.cc_id          ILIKE '%' || sqlc.narg('search') || '%'
+       OR cc.change_title   ILIKE '%' || sqlc.narg('search') || '%'
+       OR owner.full_name   ILIKE '%' || sqlc.narg('search') || '%');

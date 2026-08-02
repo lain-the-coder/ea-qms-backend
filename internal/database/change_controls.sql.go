@@ -7,9 +7,66 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const countChangeControls = `-- name: CountChangeControls :one
+SELECT COUNT(*) 
+FROM change_controls cc
+    JOIN        users owner     ON owner.id = cc.change_owner_id
+    LEFT JOIN   users approver  ON approver.id  = cc.assigned_approver_id
+WHERE 1=1
+  -- 1. Owner filter (UUID)
+  AND ($1::uuid IS NULL 
+       OR cc.change_owner_id = $1)
+
+  -- 2. Assigned Approver filter (UUID)
+  AND ($2::uuid IS NULL 
+       OR cc.assigned_approver_id = $2)
+
+  -- 3. State filter (text)
+  AND ($3::text IS NULL 
+       OR cc.current_state = $3)
+
+  -- 4. Created after filter (date, inclusive >=)
+  AND ($4::date IS NULL 
+       OR cc.created_on >= $4)
+
+  -- 5. Created before filter (date, exclusive < with +1 day buffer)
+  AND ($5::date IS NULL 
+       OR cc.created_on < $5 + INTERVAL '1 day')
+
+  -- 6. Search filter (text across multiple columns)
+  AND ($6::text IS NULL 
+       OR cc.cc_id          ILIKE '%' || $6 || '%'
+       OR cc.change_title   ILIKE '%' || $6 || '%'
+       OR owner.full_name   ILIKE '%' || $6 || '%')
+`
+
+type CountChangeControlsParams struct {
+	OwnerID            *uuid.UUID
+	AssignedApproverID *uuid.UUID
+	State              *string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
+	Search             *string
+}
+
+func (q *Queries) CountChangeControls(ctx context.Context, arg CountChangeControlsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countChangeControls,
+		arg.OwnerID,
+		arg.AssignedApproverID,
+		arg.State,
+		arg.CreatedAfter,
+		arg.CreatedBefore,
+		arg.Search,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createChangeControl = `-- name: CreateChangeControl :one
 INSERT INTO change_controls (change_owner_id, last_updated_by_id)
@@ -189,6 +246,117 @@ func (q *Queries) ListActiveCCIDsForUser(ctx context.Context, userID uuid.UUID) 
 			return nil, err
 		}
 		items = append(items, cc_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChangeControls = `-- name: ListChangeControls :many
+SELECT
+    cc.id,
+    cc.cc_id,
+    cc.change_title,
+    cc.current_state, 
+    cc.change_owner_id, 
+    owner.full_name                                 AS owner_name, 
+    cc.assigned_approver_id, approver.full_name     AS approver_name, 
+    cc.created_on, 
+    cc.last_updated_on
+FROM change_controls cc
+    JOIN        users owner     ON owner.id = cc.change_owner_id
+    LEFT JOIN   users approver  ON approver.id  = cc.assigned_approver_id
+WHERE 1=1
+  -- 1. Owner filter (UUID)
+  AND ($1::uuid IS NULL 
+       OR cc.change_owner_id = $1)
+
+  -- 2. Assigned Approver filter (UUID)
+  AND ($2::uuid IS NULL 
+       OR cc.assigned_approver_id = $2)
+
+  -- 3. State filter (text)
+  AND ($3::text IS NULL 
+       OR cc.current_state = $3)
+
+  -- 4. Created after filter (date, inclusive >=)
+  AND ($4::date IS NULL 
+       OR cc.created_on >= $4)
+
+  -- 5. Created before filter (date, exclusive < with +1 day buffer)
+  AND ($5::date IS NULL 
+       OR cc.created_on < $5 + INTERVAL '1 day')
+
+  -- 6. Search filter (text across multiple columns)
+  AND ($6::text IS NULL 
+       OR cc.cc_id          ILIKE '%' || $6 || '%'
+       OR cc.change_title   ILIKE '%' || $6 || '%'
+       OR owner.full_name   ILIKE '%' || $6 || '%')
+ORDER BY cc.last_updated_on DESC
+LIMIT $8 OFFSET $7
+`
+
+type ListChangeControlsParams struct {
+	OwnerID            *uuid.UUID
+	AssignedApproverID *uuid.UUID
+	State              *string
+	CreatedAfter       *time.Time
+	CreatedBefore      *time.Time
+	Search             *string
+	Offset             int32
+	Limit              int32
+}
+
+type ListChangeControlsRow struct {
+	ID                 uuid.UUID
+	CcID               string
+	ChangeTitle        *string
+	CurrentState       string
+	ChangeOwnerID      uuid.UUID
+	OwnerName          string
+	AssignedApproverID *uuid.UUID
+	ApproverName       *string
+	CreatedOn          time.Time
+	LastUpdatedOn      time.Time
+}
+
+func (q *Queries) ListChangeControls(ctx context.Context, arg ListChangeControlsParams) ([]ListChangeControlsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listChangeControls,
+		arg.OwnerID,
+		arg.AssignedApproverID,
+		arg.State,
+		arg.CreatedAfter,
+		arg.CreatedBefore,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChangeControlsRow
+	for rows.Next() {
+		var i ListChangeControlsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CcID,
+			&i.ChangeTitle,
+			&i.CurrentState,
+			&i.ChangeOwnerID,
+			&i.OwnerName,
+			&i.AssignedApproverID,
+			&i.ApproverName,
+			&i.CreatedOn,
+			&i.LastUpdatedOn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

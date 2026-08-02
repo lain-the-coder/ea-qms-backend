@@ -101,6 +101,8 @@ func main() {
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleCCOwner, cfg.HandlerCreateChangeControl))))
 	mux.Handle("GET /api/changecontrols/{ccID}",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetChangeControl)))
+	mux.Handle("GET /api/changecontrols",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListChangeControls)))
 
 	server := &http.Server{
 		Addr:    ":1304",
