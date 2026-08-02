@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 18 — `GET /api/changecontrols/{ccID}` · **11 of 22**
-- **Next task:** checkpoint 19 — `GET /api/changecontrols` (endpoint 11, list + filters)
+- **Last checkpoint:** 19 — `GET /api/changecontrols` · **12 of 22**
+- **Next task:** checkpoint 20 — `PUT /api/changecontrols/{ccID}` (endpoint 13, Save Draft) — **last before the context handover**
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -25,7 +25,7 @@ guardrail docs carry the substance and are always attached.
 | Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end       |
 | API — Group 1 Auth (1–3)            | ✅ Complete                                       |
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
-| API — Group 3 CCs (10–13)           | 🔵 **In progress — 2 / 4** (create ✅, get ✅)    |
+| API — Group 3 CCs (10–13)           | 🔵 **3 / 4** (create ✅, get ✅, list ✅)         |
 | API — Groups 4–7 (14–22)            | ⬜ Dashboard, workflow, files, signatures         |
 
 ---
@@ -859,46 +859,94 @@ through the API. No sqlc override needed; the schema stays as the DB doc specifi
 
 ---
 
+### ✅ Checkpoint 19 — `GET /api/changecontrols` (endpoint 11 of 22)
+
+Authenticated, any role. **One endpoint serves four screens** — All Change Controls, My
+Change Controls, the Approvals queue, dashboard click-throughs — via opt-in client filters.
+**No role scoping:** it would be theatre while `GET /{ccID}` is open to everyone (you could
+just enumerate CC-001, CC-002…).
+
+**`ListChangeControls` + `CountChangeControls`** with **byte-identical FROM / JOIN / WHERE**,
+so `total` describes the same set the page was sliced from. If they drift, every pager in the
+UI is silently wrong.
+
+**`WHERE 1=1` + six independent `AND (narg IS NULL OR …)` blocks.** `1=1` is always true, so
+every real condition can be uniformly prefixed with `AND` and the first one needs no special
+case. Each filter is independently nullable, so **any combination works from one query** —
+otherwise it would be a permutation per combination.
+
+| Filter         | URL                          | SQL                                                         |
+| -------------- | ---------------------------- | ----------------------------------------------------------- |
+| owner          | `?owner=me`                  | `change_owner_id` (uuid)                                    |
+| assigned       | `?assigned=me`               | `assigned_approver_id` (uuid)                               |
+| state          | `?state=Initiated`           | `current_state` (text)                                      |
+| created after  | `?created_after=YYYY-MM-DD`  | `created_on >= $`                                           |
+| created before | `?created_before=YYYY-MM-DD` | `created_on < $ + INTERVAL '1 day'`                         |
+| search         | `?search=kiosk`              | `ILIKE '%…%'` on `cc_id`, `change_title`, `owner.full_name` |
+
+- **`me` is a flag, not a value.** The UUID comes from the verified token, never the URL, so
+  nobody can filter by someone else's identity — there is no `?owner=<uuid>` at all
+- **`+ INTERVAL '1 day'` is not cosmetic.** `created_on` is `TIMESTAMPTZ`; a date parses as
+  midnight, so without it a CC created at 09:00 on the chosen day is excluded from a range
+  the user believes includes it
+- **`search` uses `ILIKE`** (case-insensitive) with wildcards **in the SQL**, so the parameter
+  stays raw user input. Searching `owner.full_name` works only because the owner join is
+  already there for the response
+- **Two joins, not five** — INNER for the owner, LEFT for the approver. The summary carries no
+  approval-name fields
+- `state` is validated against the six constants → an unknown state is a clean 400, not a
+  silently empty table
+
+**`ChangeControlSummary` is 10 fields**, matching the table columns — not the 54-field record.
+Fewer joins _and_ ~8× less payload (decision #26).
+
+| Check (18 cases)                                                   | Verified |
+| ------------------------------------------------------------------ | -------- |
+| No params → 2/2, `filtered:false`; `?owner=me` as Admin → 0/0      | ✅       |
+| `?state=Draft` → 400; `?created_after=notadate` → 400              | ✅       |
+| `?search=cc-001` matches stored `CC-001` — **`ILIKE`, not `LIKE`** | ✅       |
+| `?search=Default` → 2 — **matched the joined owner name**          | ✅       |
+| **`?created_before=2026-07-30` → 2** — the off-by-one fix          | ✅       |
+| Three filters combined → 1 record                                  | ✅       |
+| `?limit=1` → **count 1, total 2**; `&offset=1` → the other record  | ✅       |
+
+**Lesson — read the generated params struct.** sqlc assigned `$7` to `offset` and `$8` to
+`limit`, so the struct fields are ordered `Offset, Limit` — _not_ the order they appear in the
+SQL. Harmless here because the call site uses a keyed struct literal, but passing positionally
+would have silently swapped page size and offset.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 19 — `GET /api/changecontrols` (endpoint 11, list)
+### ⬜ Checkpoint 20 — `PUT /api/changecontrols/{ccID}` (endpoint 13, Save Draft)
 
-Role-scoped list with filters and pagination.
+**The hardest of Group 3, and the last endpoint before the context handover.**
 
-**Filters: `?state=` · `?owner=me` · `?assigned=me` · `?page=` · `?page_size=`** → the
-**`sqlc.narg` + `IS NULL OR`** pattern from checkpoint 13 is what avoids hand-writing a query
-permutation per filter combination. Same five joins as endpoint 12.
+Owner-only, **`Initiated` state only** (409 otherwise). Partial update across ~40 nullable
+fields. **No presence validation** — a draft may be saved in any state of incompleteness;
+presence is checked only at transitions (T2 requires 20 fields, T6 requires 5).
 
-**No role scoping** — every authenticated role sees every CC by default, consistent with
-endpoint 12. Scoping the list would be security theatre anyway: if any role can read
-`/CC-001` directly, the list adds nothing by hiding it.
+**The core problem:** three distinct client intents must be distinguished per field —
 
-**One endpoint serves four screens** via opt-in client filters:
+| Client sends            | Means          |
+| ----------------------- | -------------- |
+| field absent            | don't touch it |
+| `"change_title": null`  | **clear it**   |
+| `"change_title": "Fix"` | set it         |
 
-| Screen                     | Request                         |
-| -------------------------- | ------------------------------- |
-| `all-change-controls.html` | no filter                       |
-| `my-change-controls.html`  | `?owner=me`                     |
-| Approvals queue            | `?assigned=me` + pending states |
-| Dashboard click-throughs   | `?state=…`                      |
+Standard `json.Decode` into `*string` **cannot tell absent from null** — both give `nil`. The
+`*bool` / `*string` pattern rehearsed at checkpoints 15–16 solves absent-vs-value but not
+absent-vs-null. Options: `json.RawMessage` per field, a custom `UnmarshalJSON`, or decoding
+into `map[string]json.RawMessage` first to see which keys were present. **Decide before
+writing.**
 
-Note `?owner=me` and `?assigned=me` take the literal string **`me`**, not a UUID — the handler
-resolves it to the authenticated user. There is no `?owner=<someone-else>` option.
-Default sort is **`last_updated_on DESC`** (§9.5.3).
+**Also needed:** `last_updated_by_id` and `last_updated_on` must update; audit rows for each
+changed field (the delta principle from checkpoint 16, now across ~40 fields rather than 2);
+and the same shared-timestamp rule (BR-8.7.5).
 
-**Two decisions needed:**
-
-1. **Pagination shape.** The plan specifies `?page=`/`?page_size=` for this endpoint, but
-   `GET /api/users` was built with `limit`/`offset` (checkpoint 13). Either reconcile the plan
-   to `limit`/`offset` for consistency across the API, or accept two conventions.
-2. **Response shape.** 54 fields × 50 rows is a lot for a table view that shows perhaps eight
-   columns (cc_id, title, state, owner, last updated). A **summary struct** is probably right
-   — which is exactly why the full mapper was left inline at checkpoint 18 rather than
-   extracted on the assumption that three endpoints would share it.
-
-**Then:** #13 Save Draft (absent vs null vs value across ~40 fields) → **T2 submit, the first
-full transition, written fully inline** (§0) → T3, T4/5 → files → T6 → T7/8 → dashboard →
-signatures.
+**Note for time fields:** Save Draft accepts only RFC 3339 for the two `TIME` columns —
+`"09:00:00"` will be _rejected_. The frontend must send `"0000-01-01T09:00:00Z"` (see F8).
 
 ---
 
@@ -907,14 +955,15 @@ signatures.
 Session decisions that now contradict a guardrail doc. Until amended, a future session may
 "correct" a deliberate choice back.
 
-| Doc                           | Change needed                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `API_ENDPOINT_PLAN.md`        | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                    |
-| BRD **BR-8.4.11** scope note  | Remove _"the name change can still be saved"_ — a blocked role change now saves **nothing** (decision #22)                                                                                                                                                                                                                                                                                                        |
-| DB Design **§8.2** scope note | Remove _"a name change on the same request must still succeed... the handler applies the name update regardless"_ — same override (decision #22)                                                                                                                                                                                                                                                                  |
-| `CONTEXT_HANDOFF.md`          | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                   |
-| BRD                           | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5) |
-| DB Design doc                 | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                           |
+| Doc                           | Change needed                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_ENDPOINT_PLAN.md`        | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                      |
+| `API_ENDPOINT_PLAN.md`        | Endpoint 11: pagination is **`?limit=`/`?offset=`**, not `?page=`/`?page_size=` — one convention across the API, matching `GET /api/users`. Also add the two filters built beyond the plan's list: **`?search=`** (forced by pagination — client-side search can only see the current page) and **`?created_after=`/`?created_before=`**. Search is table filtering, not the reporting/analytics excluded by §1.3.2 |
+| BRD **BR-8.4.11** scope note  | Remove _"the name change can still be saved"_ — a blocked role change now saves **nothing** (decision #22)                                                                                                                                                                                                                                                                                                          |
+| DB Design **§8.2** scope note | Remove _"a name change on the same request must still succeed... the handler applies the name update regardless"_ — same override (decision #22)                                                                                                                                                                                                                                                                    |
+| `CONTEXT_HANDOFF.md`          | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                     |
+| BRD                           | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5)   |
+| DB Design doc                 | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -949,6 +998,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 23  | **`POST /api/changecontrols` returns only the eight FR-6.1.4 system fields (plus `id` and the owner's name), not the full 50-field record.** User names accompany every user ID in CC responses; both are returned                                                                                         | _Minimal response:_ at creation the other 42 fields are null and the client just created the record, so it can render the empty form with **no second round trip**. The full mapper is then built at endpoint 12 where it is genuinely required, rather than speculatively here (§0). _Names alongside IDs:_ the frontend **cannot** resolve a UUID to a name on its own — a per-record `GET /api/users/{id}` would be N+1 on a list, and caching all users is impossible for a Viewer (that endpoint is Admin-only). _Both, not either:_ **ID for comparisons** (`cc.change_owner_id === currentUser.id` decides whether Save Draft renders — names are unstable, since two people can share one and this API can change them) and **name for display**                                                                                                                                                                                                                                                                                                                |
 | 24  | **CC endpoints are addressed by the business key `cc_id` (`/api/changecontrols/CC-001`), not the UUID**                                                                                                                                                                                                    | The API plan writes `{ccID}` and the field reference names field 1 `cc_id`, both pointing at the business key. It is what users say out loud, it makes logs and Postman requests readable, and `uq_change_controls_cc_id` exists to serve exactly that lookup. The usual objection to business keys — that they change — does not apply: field 1 is **immutable after creation**. Bonus: **no format validation is needed**, since a malformed id simply matches nothing and returns 404. Applies to endpoints 12, 13, all seven transitions, files and signatures                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 25  | **`ChangeControlResponse` is flat, not nested** — `change_owner_id` + `change_owner_name` rather than `change_owner: {id, full_name}`                                                                                                                                                                      | Nesting reads better with five user references on one record, and was specced that way first — then reversed deliberately: release 1 optimises for **finishing correctly**, not for readability polish that can be applied later. Flat also matches the create response, so both CC endpoints return the same shape for user references; nesting one and not the other would have been the worse inconsistency. **Both id and name are returned** for each reference (decision #23's reasoning): id for comparisons, name for display                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 26  | **The list returns a 10-field `ChangeControlSummary`, not the 54-field record**                                                                                                                                                                                                                            | The tables display seven columns; returning 54 fields × 20 rows to render seven is ~8× the payload for nothing. Counter-intuitively the summary is also **less work**: it needs **two** joins instead of five, since it carries no approval-name fields. This is why the full mapper was deliberately left inline at checkpoint 18 rather than extracted — the assumption that three endpoints would share one shape turned out to be wrong                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ---
 
@@ -957,16 +1007,18 @@ Settled in working sessions and binding. They exist nowhere else.
 Obligations that fall on the **frontend**, not the backend. Collected here so they survive
 into the UI build / handover rather than being buried in the flags table.
 
-| #   | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Source                                             |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| F1  | **Refresh proactively on a timer** at ~24 min (≈80 % of the 30-min access token), plus a 401-interceptor that refreshes and retries once as a safety net. The backend contract assumes this; without it users hit surprise logouts                                                                                                                                                                                                                                                                                                                                                                                                        | flag #12, decision #15                             |
-| F2  | **Normalize en-dashes to ASCII hyphens** before submitting. The HTML prototypes' `<option value="...">` entries contain en-dashes; `ck_cc_requires_testing` and `ck_esignatures_meaning` are live and will reject them on every submit. Either normalize at the API boundary or fix the prototypes                                                                                                                                                                                                                                                                                                                                        | flag #4, DB §6.5                                   |
-| F3  | **Rewrite the blocked-role-change banner.** The prototype reads _"…These records must be Closed or Cancelled before the role can be changed. **The name change can still be saved.**"_ — that last sentence must be **deleted**. Under decision #22 a blocked role change saves **nothing**, so the banner should state only that the role change was blocked and list the offending CC-IDs from `blocked_cc_ids`                                                                                                                                                                                                                         | `settings-admin.html`, decision #22                |
-| F4  | **Disable the active/inactive toggle for the current user's own row.** The API returns 400 for self-deactivation, so leaving it enabled produces an error the UI could have prevented. The prototype already omits the pencil icon for `(you)` but leaves the toggle live                                                                                                                                                                                                                                                                                                                                                                 | `settings-admin.html`, decision #20                |
-| F5  | **Send `?limit=` explicitly.** The prototype's pager shows 20 per page; the API's default is 50 (max 200). The response echoes `limit`/`offset`/`total` back for the pager                                                                                                                                                                                                                                                                                                                                                                                                                                                                | checkpoint 13                                      |
-| F8  | **Time-of-day fields carry a fake date — strip it on read, re-add it on write.** `implementation_window_start` / `_end` are Postgres `TIME` columns (no date), but Go's `time.Time` always carries one, so the API returns **`"0000-01-01T09:00:00Z"`**. The time part is correct; year 0 is an artifact. An `<input type="time">` needs `"09:00"`, so slice characters 11–16 on read. **Critically, Save Draft accepts only RFC 3339** — sending `"09:00:00"` will be _rejected_ with a parse error, so the frontend must send the full `"0000-01-01T09:00:00Z"` form back. The contract is symmetric: the same shape in both directions | checkpoint 18, flag #9                             |
-| F7  | **The Profile screen is read-only in Phase 1.** `settings-profile-enduser.html` offers a **Full Name edit + Save Changes** and a **Change Password** form; neither has a backing endpoint. _Change password_ is a **documented descope** (API plan "Forgot / reset / change password"). _Self name-change_ is an **undocumented gap** — `GET /api/me` is described in the plan as read-only, and `PUT /api/users/{userID}` is Admin-gated, so a regular user calling it gets 403. **Phase 1 UI:** display name / email / role from `GET /api/me`, plus sign-out via `POST /api/revoke`. Both sections deferred to Phase 2                 | `settings-profile-enduser.html`, API plan §Group 2 |
-| F6  | **Two calls, not one, on the user-management screen.** The pencil → edit name/role → tick flow is `PUT /api/users/{userID}`; the status toggle is `PUT /api/users/{userID}/active`. Both Admin-only                                                                                                                                                                                                                                                                                                                                                                                                                                       | checkpoints 15–16                                  |
+| #   | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Source                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| F1  | **Refresh proactively on a timer** at ~24 min (≈80 % of the 30-min access token), plus a 401-interceptor that refreshes and retries once as a safety net. The backend contract assumes this; without it users hit surprise logouts                                                                                                                                                                                                                                                                                                                                                                                                                      | flag #12, decision #15                             |
+| F2  | **Normalize en-dashes to ASCII hyphens** before submitting. The HTML prototypes' `<option value="...">` entries contain en-dashes; `ck_cc_requires_testing` and `ck_esignatures_meaning` are live and will reject them on every submit. Either normalize at the API boundary or fix the prototypes                                                                                                                                                                                                                                                                                                                                                      | flag #4, DB §6.5                                   |
+| F3  | **Rewrite the blocked-role-change banner.** The prototype reads _"…These records must be Closed or Cancelled before the role can be changed. **The name change can still be saved.**"_ — that last sentence must be **deleted**. Under decision #22 a blocked role change saves **nothing**, so the banner should state only that the role change was blocked and list the offending CC-IDs from `blocked_cc_ids`                                                                                                                                                                                                                                       | `settings-admin.html`, decision #22                |
+| F4  | **Disable the active/inactive toggle for the current user's own row.** The API returns 400 for self-deactivation, so leaving it enabled produces an error the UI could have prevented. The prototype already omits the pencil icon for `(you)` but leaves the toggle live                                                                                                                                                                                                                                                                                                                                                                               | `settings-admin.html`, decision #20                |
+| F5  | **Send `?limit=` explicitly.** The prototype's pager shows 20 per page; the API's default is 50 (max 200). The response echoes `limit`/`offset`/`total` back for the pager                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | checkpoint 13                                      |
+| F9  | **Reset `offset` to 0 whenever a filter changes.** Otherwise: the user is on page 3 (`offset=40`), types a search term matching 3 records, and offset 40 skips past all of them — an empty screen for a search that did match. Adding or changing any filter means going back to page 1                                                                                                                                                                                                                                                                                                                                                                 | checkpoint 19                                      |
+| F10 | **Four prototype controls have no API support in Phase 1** — remove or hide them: (a) the **Created By** column duplicates Change Owner; there is no `created_by` column and creator _is_ owner, immutably (field 3). `my-change-controls.html` row 3 shows them differing, which is not possible; (b) **sortable column chevrons** — sort is fixed at `last_updated_on DESC` (§9.5.3), there is no sort parameter; (c) the **7/30/90-day Date Range buckets** — the frontend computes the date and sends `?created_after=`; (d) the **Ownership dropdown's three options** collapse to two, since "Created by me" and "Owned by me" are the same thing | checkpoint 19                                      |
+| F8  | **Time-of-day fields carry a fake date — strip it on read, re-add it on write.** `implementation_window_start` / `_end` are Postgres `TIME` columns (no date), but Go's `time.Time` always carries one, so the API returns **`"0000-01-01T09:00:00Z"`**. The time part is correct; year 0 is an artifact. An `<input type="time">` needs `"09:00"`, so slice characters 11–16 on read. **Critically, Save Draft accepts only RFC 3339** — sending `"09:00:00"` will be _rejected_ with a parse error, so the frontend must send the full `"0000-01-01T09:00:00Z"` form back. The contract is symmetric: the same shape in both directions               | checkpoint 18, flag #9                             |
+| F7  | **The Profile screen is read-only in Phase 1.** `settings-profile-enduser.html` offers a **Full Name edit + Save Changes** and a **Change Password** form; neither has a backing endpoint. _Change password_ is a **documented descope** (API plan "Forgot / reset / change password"). _Self name-change_ is an **undocumented gap** — `GET /api/me` is described in the plan as read-only, and `PUT /api/users/{userID}` is Admin-gated, so a regular user calling it gets 403. **Phase 1 UI:** display name / email / role from `GET /api/me`, plus sign-out via `POST /api/revoke`. Both sections deferred to Phase 2                               | `settings-profile-enduser.html`, API plan §Group 2 |
+| F6  | **Two calls, not one, on the user-management screen.** The pencil → edit name/role → tick flow is `PUT /api/users/{userID}`; the status toggle is `PUT /api/users/{userID}/active`. Both Admin-only                                                                                                                                                                                                                                                                                                                                                                                                                                                     | checkpoints 15–16                                  |
 
 ---
 
@@ -990,6 +1042,7 @@ into the UI build / handover rather than being buried in the flags table.
 | 14  | **Dead `refresh_tokens` rows accumulate forever.** Expired and revoked rows are never removed. Eventual hygiene is a periodic `DELETE ... WHERE expires_at < NOW() - INTERVAL '30 days' OR revoked_at < ...`, as a cron or a `cmd/cleanup` command. Irrelevant at current volume (a few users, a handful of logins a day); deferred alongside log rotation (flag #10)                                                                                                                                                                                                                            | Deferred                                                                                                           |
 | 15  | ~~**The deactivation 409 path is untested.**~~ **CLOSED at checkpoint 17.** With CC-001 and CC-002 created, both guards fired correctly: deactivating and role-changing their owner returned 409 listing both CC-IDs, while a name-only change and a name change with an unchanged role both succeeded                                                                                                                                                                                                                                                                                           | **Closed**                                                                                                         |
 | 16  | **No CC reassignment endpoint exists.** If a CC's assigned approver becomes unavailable — deactivated by a route that bypasses the guard (a direct DB edit), or simply unreachable — the record has **no recovery path**: it sits in `Pending Implementation Approval` with nobody able to action it. Decision #19's guard prevents the API from _creating_ this state, but cannot repair one. Out of documented scope for Phase 1                                                                                                                                                               | Noted; Phase 2 candidate                                                                                           |
+| 17  | **`ILIKE '%term%'` cannot use an index.** The leading `%` makes a B-tree useless, so `?search=` forces a sequential scan of `change_controls` joined to `users`. Irrelevant at hundreds or a few thousand records (milliseconds); at ~100k rows it would need a **trigram index** (`CREATE EXTENSION pg_trgm` + a GIN index per searched column). Not worth building now                                                                                                                                                                                                                         | Noted; performance only                                                                                            |
 
 ---
 
