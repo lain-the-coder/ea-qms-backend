@@ -226,6 +226,70 @@ func (q *Queries) GetChangeControlByCcID(ctx context.Context, ccID string) (GetC
 	return i, err
 }
 
+const getChangeControlForUpdate = `-- name: GetChangeControlForUpdate :one
+SELECT id, cc_number, cc_id, current_state, change_owner_id, last_updated_by_id, created_on, last_updated_on, change_title, change_description, change_type, change_category, department_function, affected_systems_modules, proposed_implementation_date, target_closure_date, implementation_window_start, implementation_window_end, reason_for_change, business_impact, expected_downtime, requires_testing, requires_training, risk_rationale, key_risks_mitigations, high_level_implementation_plan, validation_approach, success_criteria, rollback_backout_plan, actual_implementation_date, post_implementation_issues, implementation_summary, deviations_from_plan, validation_performed, assigned_approver_id, comments_for_approver, decision, risk_level, decision_comments, implementation_approval_by_id, implementation_approval_on, final_decision, final_comments, final_approval_by_id, final_approval_on, implementation_approval_status, final_approval_status, actual_closure_date, comments, cancellation_reason FROM change_controls
+WHERE cc_id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetChangeControlForUpdate(ctx context.Context, ccID string) (ChangeControl, error) {
+	row := q.db.QueryRowContext(ctx, getChangeControlForUpdate, ccID)
+	var i ChangeControl
+	err := row.Scan(
+		&i.ID,
+		&i.CcNumber,
+		&i.CcID,
+		&i.CurrentState,
+		&i.ChangeOwnerID,
+		&i.LastUpdatedByID,
+		&i.CreatedOn,
+		&i.LastUpdatedOn,
+		&i.ChangeTitle,
+		&i.ChangeDescription,
+		&i.ChangeType,
+		&i.ChangeCategory,
+		&i.DepartmentFunction,
+		&i.AffectedSystemsModules,
+		&i.ProposedImplementationDate,
+		&i.TargetClosureDate,
+		&i.ImplementationWindowStart,
+		&i.ImplementationWindowEnd,
+		&i.ReasonForChange,
+		&i.BusinessImpact,
+		&i.ExpectedDowntime,
+		&i.RequiresTesting,
+		&i.RequiresTraining,
+		&i.RiskRationale,
+		&i.KeyRisksMitigations,
+		&i.HighLevelImplementationPlan,
+		&i.ValidationApproach,
+		&i.SuccessCriteria,
+		&i.RollbackBackoutPlan,
+		&i.ActualImplementationDate,
+		&i.PostImplementationIssues,
+		&i.ImplementationSummary,
+		&i.DeviationsFromPlan,
+		&i.ValidationPerformed,
+		&i.AssignedApproverID,
+		&i.CommentsForApprover,
+		&i.Decision,
+		&i.RiskLevel,
+		&i.DecisionComments,
+		&i.ImplementationApprovalByID,
+		&i.ImplementationApprovalOn,
+		&i.FinalDecision,
+		&i.FinalComments,
+		&i.FinalApprovalByID,
+		&i.FinalApprovalOn,
+		&i.ImplementationApprovalStatus,
+		&i.FinalApprovalStatus,
+		&i.ActualClosureDate,
+		&i.Comments,
+		&i.CancellationReason,
+	)
+	return i, err
+}
+
 const listActiveCCIDsForUser = `-- name: ListActiveCCIDsForUser :many
 SELECT cc_id FROM change_controls
 WHERE (change_owner_id = $1 OR assigned_approver_id = $1)
@@ -365,4 +429,165 @@ func (q *Queries) ListChangeControls(ctx context.Context, arg ListChangeControls
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateChangeControlDraft = `-- name: UpdateChangeControlDraft :one
+UPDATE change_controls
+SET
+    -- system
+    last_updated_by_id = $1,
+    last_updated_on    = NOW(),
+
+    -- Change Definition
+    change_title             = $2,
+    change_description       = $3,
+    change_type              = $4,
+    change_category          = $5,
+    department_function      = $6,
+    affected_systems_modules = $7,
+
+    -- Planning
+    proposed_implementation_date = $8,
+    target_closure_date          = $9,
+    implementation_window_start  = $10,
+    implementation_window_end    = $11,
+
+    -- Impact & Risk
+    reason_for_change     = $12,
+    business_impact       = $13,
+    expected_downtime     = $14,
+    requires_testing      = $15,
+    requires_training     = $16,
+    risk_rationale        = $17,
+    key_risks_mitigations = $18,
+
+     -- Implementation Plan
+    high_level_implementation_plan = $19,
+    validation_approach            = $20,
+    success_criteria               = $21,
+    rollback_backout_plan          = $22,
+
+    -- Approvals: Initiation
+    assigned_approver_id  = $23,
+    comments_for_approver = $24,
+
+    -- Additional
+    comments = $25
+
+WHERE cc_id = $26
+RETURNING id, cc_number, cc_id, current_state, change_owner_id, last_updated_by_id, created_on, last_updated_on, change_title, change_description, change_type, change_category, department_function, affected_systems_modules, proposed_implementation_date, target_closure_date, implementation_window_start, implementation_window_end, reason_for_change, business_impact, expected_downtime, requires_testing, requires_training, risk_rationale, key_risks_mitigations, high_level_implementation_plan, validation_approach, success_criteria, rollback_backout_plan, actual_implementation_date, post_implementation_issues, implementation_summary, deviations_from_plan, validation_performed, assigned_approver_id, comments_for_approver, decision, risk_level, decision_comments, implementation_approval_by_id, implementation_approval_on, final_decision, final_comments, final_approval_by_id, final_approval_on, implementation_approval_status, final_approval_status, actual_closure_date, comments, cancellation_reason
+`
+
+type UpdateChangeControlDraftParams struct {
+	LastUpdatedByID             uuid.UUID
+	ChangeTitle                 *string
+	ChangeDescription           *string
+	ChangeType                  *string
+	ChangeCategory              *string
+	DepartmentFunction          *string
+	AffectedSystemsModules      *string
+	ProposedImplementationDate  *time.Time
+	TargetClosureDate           *time.Time
+	ImplementationWindowStart   *time.Time
+	ImplementationWindowEnd     *time.Time
+	ReasonForChange             *string
+	BusinessImpact              *string
+	ExpectedDowntime            *string
+	RequiresTesting             *string
+	RequiresTraining            *string
+	RiskRationale               *string
+	KeyRisksMitigations         *string
+	HighLevelImplementationPlan *string
+	ValidationApproach          *string
+	SuccessCriteria             *string
+	RollbackBackoutPlan         *string
+	AssignedApproverID          *uuid.UUID
+	CommentsForApprover         *string
+	Comments                    *string
+	CcID                        string
+}
+
+func (q *Queries) UpdateChangeControlDraft(ctx context.Context, arg UpdateChangeControlDraftParams) (ChangeControl, error) {
+	row := q.db.QueryRowContext(ctx, updateChangeControlDraft,
+		arg.LastUpdatedByID,
+		arg.ChangeTitle,
+		arg.ChangeDescription,
+		arg.ChangeType,
+		arg.ChangeCategory,
+		arg.DepartmentFunction,
+		arg.AffectedSystemsModules,
+		arg.ProposedImplementationDate,
+		arg.TargetClosureDate,
+		arg.ImplementationWindowStart,
+		arg.ImplementationWindowEnd,
+		arg.ReasonForChange,
+		arg.BusinessImpact,
+		arg.ExpectedDowntime,
+		arg.RequiresTesting,
+		arg.RequiresTraining,
+		arg.RiskRationale,
+		arg.KeyRisksMitigations,
+		arg.HighLevelImplementationPlan,
+		arg.ValidationApproach,
+		arg.SuccessCriteria,
+		arg.RollbackBackoutPlan,
+		arg.AssignedApproverID,
+		arg.CommentsForApprover,
+		arg.Comments,
+		arg.CcID,
+	)
+	var i ChangeControl
+	err := row.Scan(
+		&i.ID,
+		&i.CcNumber,
+		&i.CcID,
+		&i.CurrentState,
+		&i.ChangeOwnerID,
+		&i.LastUpdatedByID,
+		&i.CreatedOn,
+		&i.LastUpdatedOn,
+		&i.ChangeTitle,
+		&i.ChangeDescription,
+		&i.ChangeType,
+		&i.ChangeCategory,
+		&i.DepartmentFunction,
+		&i.AffectedSystemsModules,
+		&i.ProposedImplementationDate,
+		&i.TargetClosureDate,
+		&i.ImplementationWindowStart,
+		&i.ImplementationWindowEnd,
+		&i.ReasonForChange,
+		&i.BusinessImpact,
+		&i.ExpectedDowntime,
+		&i.RequiresTesting,
+		&i.RequiresTraining,
+		&i.RiskRationale,
+		&i.KeyRisksMitigations,
+		&i.HighLevelImplementationPlan,
+		&i.ValidationApproach,
+		&i.SuccessCriteria,
+		&i.RollbackBackoutPlan,
+		&i.ActualImplementationDate,
+		&i.PostImplementationIssues,
+		&i.ImplementationSummary,
+		&i.DeviationsFromPlan,
+		&i.ValidationPerformed,
+		&i.AssignedApproverID,
+		&i.CommentsForApprover,
+		&i.Decision,
+		&i.RiskLevel,
+		&i.DecisionComments,
+		&i.ImplementationApprovalByID,
+		&i.ImplementationApprovalOn,
+		&i.FinalDecision,
+		&i.FinalComments,
+		&i.FinalApprovalByID,
+		&i.FinalApprovalOn,
+		&i.ImplementationApprovalStatus,
+		&i.FinalApprovalStatus,
+		&i.ActualClosureDate,
+		&i.Comments,
+		&i.CancellationReason,
+	)
+	return i, err
 }

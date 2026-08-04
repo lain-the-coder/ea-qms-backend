@@ -44,3 +44,52 @@ const (
 	approvalApproved     = "Approved"
 	approvalNA           = "N/A"
 )
+
+// Change type — ck_cc_change_type
+const (
+	changeTypeApplication    = "Application"
+	changeTypeInfrastructure = "Infrastructure"
+	changeTypeDatabase       = "Database"
+	changeTypeSecurity       = "Security"
+	changeTypeNetwork        = "Network"
+	changeTypeHardware       = "Hardware"
+	changeTypeProcess        = "Process"
+	changeTypeOther          = "Other"
+)
+
+// Change category — ck_cc_change_category ("Emergency" excluded, Phase 1 / BRD L1)
+const (
+	changeCategoryNormal   = "Normal"
+	changeCategoryStandard = "Standard"
+)
+
+// Department / function — ck_cc_department_function
+const (
+	deptIT         = "IT"
+	deptOperations = "Operations"
+	deptSecurity   = "Security"
+	deptQA         = "QA"
+	deptFacilities = "Facilities"
+	deptOther      = "Other"
+)
+
+// Expected downtime — ck_cc_expected_downtime
+const (
+	downtimeYes     = "Yes"
+	downtimeNo      = "No"
+	downtimeUnknown = "Unknown"
+)
+
+// Requires testing — ck_cc_requires_testing
+const (
+	testingFull    = "Yes - Full testing"
+	testingPartial = "Yes - Partial testing"
+	testingNone    = "No"
+)
+
+// Requires training — ck_cc_requires_training
+const (
+	trainingYes           = "Yes"
+	trainingNo            = "No"
+	trainingNotApplicable = "Not applicable"
+)

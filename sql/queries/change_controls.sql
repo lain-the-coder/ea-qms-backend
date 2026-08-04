@@ -99,3 +99,54 @@ WHERE 1=1
        OR cc.cc_id          ILIKE '%' || sqlc.narg('search') || '%'
        OR cc.change_title   ILIKE '%' || sqlc.narg('search') || '%'
        OR owner.full_name   ILIKE '%' || sqlc.narg('search') || '%');
+
+-- name: UpdateChangeControlDraft :one
+UPDATE change_controls
+SET
+    -- system
+    last_updated_by_id = sqlc.arg('last_updated_by_id'),
+    last_updated_on    = NOW(),
+
+    -- Change Definition
+    change_title             = sqlc.narg('change_title'),
+    change_description       = sqlc.narg('change_description'),
+    change_type              = sqlc.narg('change_type'),
+    change_category          = sqlc.narg('change_category'),
+    department_function      = sqlc.narg('department_function'),
+    affected_systems_modules = sqlc.narg('affected_systems_modules'),
+
+    -- Planning
+    proposed_implementation_date = sqlc.narg('proposed_implementation_date'),
+    target_closure_date          = sqlc.narg('target_closure_date'),
+    implementation_window_start  = sqlc.narg('implementation_window_start'),
+    implementation_window_end    = sqlc.narg('implementation_window_end'),
+
+    -- Impact & Risk
+    reason_for_change     = sqlc.narg('reason_for_change'),
+    business_impact       = sqlc.narg('business_impact'),
+    expected_downtime     = sqlc.narg('expected_downtime'),
+    requires_testing      = sqlc.narg('requires_testing'),
+    requires_training     = sqlc.narg('requires_training'),
+    risk_rationale        = sqlc.narg('risk_rationale'),
+    key_risks_mitigations = sqlc.narg('key_risks_mitigations'),
+
+     -- Implementation Plan
+    high_level_implementation_plan = sqlc.narg('high_level_implementation_plan'),
+    validation_approach            = sqlc.narg('validation_approach'),
+    success_criteria               = sqlc.narg('success_criteria'),
+    rollback_backout_plan          = sqlc.narg('rollback_backout_plan'),
+
+    -- Approvals: Initiation
+    assigned_approver_id  = sqlc.narg('assigned_approver_id'),
+    comments_for_approver = sqlc.narg('comments_for_approver'),
+
+    -- Additional
+    comments = sqlc.narg('comments')
+
+WHERE cc_id = sqlc.arg('cc_id')
+RETURNING *;
+
+-- name: GetChangeControlForUpdate :one
+SELECT * FROM change_controls
+WHERE cc_id = $1
+FOR UPDATE;

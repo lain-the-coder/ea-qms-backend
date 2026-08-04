@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 	"unicode"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -130,4 +133,35 @@ func strValue(s *string) string {
 // address of a literal, and the nullable audit columns are *string.
 func strPtr(s string) *string {
 	return &s
+}
+
+// sameStrPtr reports whether two optional strings hold the same value.
+// Both nil = unchanged. One nil = changed. Both set = compare values.
+func sameStrPtr(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func sameTimePtr(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
+}
+
+func dateToAuditStr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	return strPtr(t.Format("2006-01-02"))
+}
+
+// sameUUIDPtr reports whether two optional UUIDs hold the same value.
+func sameUUIDPtr(a, b *uuid.UUID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
