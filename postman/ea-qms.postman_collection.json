@@ -38,7 +38,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"email\": \"admin@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+              "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1623,7 +1623,27 @@
           "name": "Update User Status",
           "request": {
             "method": "PUT",
-            "header": []
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"is_active\": false\r\n}\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/13d25f19-36d3-4d0f-8652-75f2b78422e6/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "13d25f19-36d3-4d0f-8652-75f2b78422e6",
+                "active"
+              ]
+            }
           },
           "response": [
             {
@@ -2039,6 +2059,52 @@
               ],
               "cookie": [],
               "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"System Administrator\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-20T20:39:17.470119+04:00\"\n}"
+            },
+            {
+              "name": "block user status update with active ccs",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"is_active\": false\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/73960fc2-1d28-47a8-bce4-6efc89b71467/active",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "73960fc2-1d28-47a8-bce4-6efc89b71467",
+                    "active"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 30 Jul 2026 14:37:28 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "89"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Cannot deactivate a user with active CCs\",\n    \"blocked_cc_ids\": [\n        \"CC-001\",\n        \"CC-002\"\n    ]\n}"
             }
           ]
         },
@@ -2554,6 +2620,51 @@
               ],
               "cookie": [],
               "body": "{\n    \"id\": \"cf0b7249-5ee0-4163-8489-47d64f758148\",\n    \"full_name\": \"X\",\n    \"email\": \"admin@eaqms.local\",\n    \"role\": \"Admin\",\n    \"is_active\": true,\n    \"updated_on\": \"2026-07-30T00:53:19.711719+04:00\"\n}"
+            },
+            {
+              "name": "block user role update with active ccs",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"role\": \"Viewer\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/users/73960fc2-1d28-47a8-bce4-6efc89b71467",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "73960fc2-1d28-47a8-bce4-6efc89b71467"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 30 Jul 2026 14:38:13 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "93"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Cannot update role of a user with active CCs\",\n    \"blocked_cc_ids\": [\n        \"CC-001\",\n        \"CC-002\"\n    ]\n}"
             }
           ]
         }
@@ -2561,7 +2672,2248 @@
     },
     {
       "name": "Change Controls",
-      "item": []
+      "item": [
+        {
+          "name": "Create CC",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "CC Created 1 - Initiated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 30 Jul 2026 14:29:58 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "476"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\"\n}"
+            },
+            {
+              "name": "CC Created 2 - Initiated",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 30 Jul 2026 14:31:14 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "478"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n    \"cc_id\": \"CC-002\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\"\n}"
+            },
+            {
+              "name": "Admin Forbidden",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 30 Jul 2026 14:31:51 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Forbidden\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET CC By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-001"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200, full record",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 01 Aug 2026 09:30:31 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1688"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"change_title\": null,\n    \"change_description\": null,\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "200, full record Viewer",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 01 Aug 2026 11:09:06 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1654"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n    \"cc_id\": \"CC-002\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"change_title\": null,\n    \"change_description\": null,\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": null,\n    \"implementation_window_end\": null,\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "404",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-999"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 01 Aug 2026 09:34:34 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Change Control not found\"\n}"
+            },
+            {
+              "name": "garbage",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/garbage",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "garbage"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 01 Aug 2026 09:34:53 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Change Control not found\"\n}"
+            },
+            {
+              "name": "401",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 01 Aug 2026 09:35:35 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "24"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "GET CCs List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols?assigned=me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols"
+              ],
+              "query": [
+                {
+                  "key": "assigned",
+                  "value": "me"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "? (no params)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "",
+                      "value": null
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 06:57:05 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?owner=me as CC Owner",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?owner=me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "owner",
+                      "value": "me"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 06:57:54 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?owner=me as Admin",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?owner=me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "owner",
+                      "value": "me"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 06:58:29 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?assigned=me any role",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?assigned=me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "assigned",
+                      "value": "me"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 06:59:03 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?state=Initiated",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?state=Initiated",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "state",
+                      "value": "Initiated"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:02:34 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?state=Closed",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?state=Closed",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "state",
+                      "value": "Closed"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:02:51 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?state=Draft",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?state=Draft",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "state",
+                      "value": "Draft"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:03:11 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "25"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid state\"\n}"
+            },
+            {
+              "name": "?search=CC-001",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?search=CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "CC-001"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:03:31 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "417"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 1,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?search=cc-001 proves ILIKE",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?search=cc-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "cc-001"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:04:01 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "417"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 1,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?search=Default",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?search=Default",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "Default"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:04:32 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?search=zzz",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?search=zzz",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "zzz"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:05:12 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?created_after=2026-07-30",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?created_after=2026-07-30",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "created_after",
+                      "value": "2026-07-30"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:06:07 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?created_after=2026-08-05",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?created_after=2026-08-05",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "created_after",
+                      "value": "2026-08-05"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:06:49 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [],\n    \"total\": 0,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?created_before=2026-07-30",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?created_before=2026-07-30",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "created_before",
+                      "value": "2026-07-30"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:07:16 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "783"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        },\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?created_after=notadate",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?created_after=notadate",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "created_after",
+                      "value": "notadate"
+                    }
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:07:55 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "44"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"created_after must be YYYY-MM-DD\"\n}"
+            },
+            {
+              "name": "?owner=me&state=Initiated&search=CC-002",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?owner=me&state=Initiated&search=CC-002",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "owner",
+                      "value": "me"
+                    },
+                    {
+                      "key": "state",
+                      "value": "Initiated"
+                    },
+                    {
+                      "key": "search",
+                      "value": "CC-002"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:08:37 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "419"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        }\n    ],\n    \"total\": 1,\n    \"limit\": 50,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?limit=1",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?limit=1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "1"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:09:03 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "418"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n            \"cc_id\": \"CC-002\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:31:14.907992+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 1,\n    \"offset\": 0\n}"
+            },
+            {
+              "name": "?limit=1&offset=1",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols?limit=1&offset=1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols"
+                  ],
+                  "query": [
+                    {
+                      "key": "limit",
+                      "value": "1"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "1"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Sun, 02 Aug 2026 07:09:45 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "416"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"change_controls\": [\n        {\n            \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n            \"cc_id\": \"CC-001\",\n            \"change_title\": null,\n            \"current_state\": \"Initiated\",\n            \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n            \"change_owner_name\": \"Default CC Owner\",\n            \"assigned_approver_id\": null,\n            \"assigned_approver_name\": null,\n            \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n            \"last_updated_on\": \"2026-07-30T18:29:58.57442+04:00\"\n        }\n    ],\n    \"total\": 2,\n    \"limit\": 1,\n    \"offset\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Save Draft From Initiated",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"assigned_approver_id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-001"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Not Present CC-ID",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"x\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-999"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:48:28 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Change Control not found\"\n}"
+            },
+            {
+              "name": "403",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"x\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:52:21 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Forbidden\"\n}"
+            },
+            {
+              "name": "invalid request body",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "ppp",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:53:01 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "32"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid request body\"\n}"
+            },
+            {
+              "name": "No fields to update",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:53:44 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "31"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"No fields to update\"\n}"
+            },
+            {
+              "name": "title set, change_description still null",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"Fix kiosk receipt\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:56:35 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1704"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T10:56:35.902785+04:00\",\n    \"change_title\": \"Fix kiosk receipt\",\n    \"change_description\": null,\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "description set, change_title still \"Fix kiosk receipt",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_description\": \"Currency symbol misaligned\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:57:09 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1728"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T10:57:09.527706+04:00\",\n    \"change_title\": \"Fix kiosk receipt\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "title cleared, description untouched",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": null\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:57:44 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1713"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T10:57:44.077609+04:00\",\n    \"change_title\": null,\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "stored trimmed as \"Fix kiosk\"",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"  Fix kiosk  \"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:58:29 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1720"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T10:58:29.756025+04:00\",\n    \"change_title\": \"Fix kiosk\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "title null — empty normalises to cleared",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 06:59:05 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1713"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T10:59:05.428326+04:00\",\n    \"change_title\": null,\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 - Change Title = 201 chars",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"This response is specifically written to contain exactly two hundred and one characters in length, no more and no less. Every letter, digit, space, and punctuation mark contributes to this total count.\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:04:32 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"change_title must be 200 characters or fewer\"\n}"
+            },
+            {
+              "name": "200 - Change Title = 200 chars",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:05:50 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1911"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:05:50.201419+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": null,\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 - invalid change type",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\t{\"change_type\":\"Banana\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:20:14 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "31"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Change Type\"\n}"
+            },
+            {
+              "name": "200 - change type",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"change_type\": \"Application\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:20:37 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1920"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:20:37.528161+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": \"Application\",\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": null,\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 ← the flag #4 trap",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"requires_testing\": \"Yes – Full testing\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:21:05 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Invalid Requires Testing\"\n}"
+            },
+            {
+              "name": "200 - Requires Testing",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"requires_testing\":\"Yes - Full testing\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:21:28 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1935"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:21:28.92731+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": \"Application\",\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": null,\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 — wrong JSON type Change Title",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"change_title\":123}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:22:13 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "49"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Change Title must be a string or null\"\n}"
+            },
+            {
+              "name": "400 — not RFC 3339",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"proposed_implementation_date\":\"2026-09-15\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:22:40 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "78"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Proposed Implementation Date must be an RFC 3339 timestamp or null\"\n}"
+            },
+            {
+              "name": "200 - Proposed Implementation Date",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\t{\"proposed_implementation_date\":\"2026-09-15T00:00:00Z\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:23:04 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1954"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:23:04.839643+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": \"Application\",\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 — F11: only null clears a time field",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"implementation_window_start\":\"\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:23:31 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "77"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Implementation Window Start must be an RFC 3339 timestamp or null\"\n}"
+            },
+            {
+              "name": "200 - Assigned Approver",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:28:50 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "2002"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:28:50.837648+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": \"Application\",\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n    \"assigned_approver_name\": \"Default Approver\",\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400 \"must hold the Approver role\"",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"assigned_approver_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:31:00 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "53"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Assigned user must hold the Approver role\"\n}"
+            },
+            {
+              "name": "400 \"not found\" Assigned Approver",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"assigned_approver_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71466\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:32:52 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "39"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Assigned approver not found\"\n}"
+            },
+            {
+              "name": "Assigned Approver null - 200, cleared",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"assigned_approver_id\": null\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:33:45 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "1954"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-04T11:33:45.029383+04:00\",\n    \"change_title\": \"Here is a piece of text crafted specifically to meet your requirement. It contains letters, spaces, and punctuation marks, all meticulously counted to reach a precise length of exactly 200 characters.\",\n    \"change_description\": \"Currency symbol misaligned\",\n    \"change_type\": \"Application\",\n    \"change_category\": null,\n    \"department_function\": null,\n    \"affected_systems_modules\": null,\n    \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n    \"target_closure_date\": null,\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": null,\n    \"business_impact\": null,\n    \"expected_downtime\": null,\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": null,\n    \"risk_rationale\": null,\n    \"key_risks_mitigations\": null,\n    \"high_level_implementation_plan\": null,\n    \"validation_approach\": null,\n    \"success_criteria\": null,\n    \"rollback_backout_plan\": null,\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": null,\n    \"assigned_approver_name\": null,\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "Assigned approver is deactivated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"assigned_approver_id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "Date",
+                  "value": "Tue, 04 Aug 2026 07:36:00 GMT"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "44"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"error\": \"Assigned approver is deactivated\"\n}"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "Dashboard",
