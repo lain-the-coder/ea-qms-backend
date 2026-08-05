@@ -1224,37 +1224,36 @@ func (cfg *apiConfig) HandlerSaveDraft(w http.ResponseWriter, r *http.Request, u
 			changed = true
 		}
 	}
-	if !changed {
-		// no-op if no delta between current cc record and to update cc record
-		err = tx.Commit()
-		if err != nil {
-			log.Error("save draft failed", "reason", "db commit failed", "error", err)
-			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
-			return
-		}
-		log.Info("cc record unchanged", "cc_id", ccID)
-	} else {
+	// The update (if any) runs first, then the re-fetch, then the commit — all
+	// inside the transaction. Reading before the commit means a failure at any
+	// point leaves nothing written, so the error and the record's state agree.
+	if changed {
 		_, err = qtx.UpdateChangeControlDraft(r.Context(), params)
 		if err != nil {
 			log.Error("save draft failed", "reason", "cc update failed", "cc_id", ccID, "error", err)
 			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 			return
 		}
-		err = tx.Commit()
-		if err != nil {
-			log.Error("save draft failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
-			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
-			return
-		}
-		log.Info("cc draft saved", "cc_id", ccID)
 	}
 	// re-fetch with the five user joins so the response matches GET /{ccID}.
-	// Runs on cfg.db, not qtx — the transaction is committed and closed.
-	row, err := cfg.db.GetChangeControlByCcID(r.Context(), ccID)
+	// A transaction reads its own uncommitted writes, so this returns the
+	// post-update values.
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
 	if err != nil {
-		log.Error("save draft succeeded but re-fetch failed", "cc_id", ccID, "error", err)
+		log.Error("save draft failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
 		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Error("save draft failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if changed {
+		log.Info("cc draft saved", "cc_id", ccID)
+	} else {
+		log.Info("cc record unchanged", "cc_id", ccID)
 	}
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }

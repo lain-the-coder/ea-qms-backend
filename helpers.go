@@ -165,3 +165,16 @@ func sameUUIDPtr(a, b *uuid.UUID) bool {
 	}
 	return *a == *b
 }
+
+// businessDaysFrom returns the date n business days after start, counting
+// weekdays only. Public holidays are not considered
+func businessDaysFrom(start time.Time, n int) time.Time {
+	d := start
+	for i := 0; i < n; i++ {
+		d = d.AddDate(0, 0, 1)
+		for d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+			d = d.AddDate(0, 0, 1)
+		}
+	}
+	return d
+}

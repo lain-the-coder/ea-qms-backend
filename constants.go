@@ -93,3 +93,27 @@ const (
 	trainingNo            = "No"
 	trainingNotApplicable = "Not applicable"
 )
+
+// Workflow transitions — ck_esignatures_transition.
+// T1 (record creation) is deliberately absent: it requires no signature (BR-8.8.1).
+const (
+	transitionT2 = "T2" // Initiated → Pending Implementation Approval
+	transitionT3 = "T3" // Initiated → Cancelled
+	transitionT4 = "T4" // Pending Implementation Approval → In Implementation (approve)
+	transitionT5 = "T5" // Pending Implementation Approval → Initiated (reject)
+	transitionT6 = "T6" // In Implementation → Pending Final Approval
+	transitionT7 = "T7" // Pending Final Approval → Closed (approve)
+	transitionT8 = "T8" // Pending Final Approval → In Implementation (reject)
+)
+
+// Signature meanings — ck_esignatures_meaning (BR-8.8.4). Closed set of seven,
+// one per transition.
+const (
+	meaningSubmittedImplApproval  = "Submitted for Implementation Approval" // T2
+	meaningCancelled              = "Cancelled"                             // T3
+	meaningApprovedImplApproval   = "Approved - Implementation Approval"    // T4
+	meaningRejectedImplApproval   = "Rejected - Implementation Approval"    // T5
+	meaningSubmittedFinalApproval = "Submitted for Final Approval"          // T6
+	meaningApprovedFinalApproval  = "Approved - Final Approval"             // T7
+	meaningRejectedFinalApproval  = "Rejected - Final Approval"             // T8
+)

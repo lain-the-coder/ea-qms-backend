@@ -150,3 +150,12 @@ RETURNING *;
 SELECT * FROM change_controls
 WHERE cc_id = $1
 FOR UPDATE;
+
+-- name: SubmitForImplApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    implementation_approval_status = $3,
+    last_updated_by_id = $4,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;
