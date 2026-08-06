@@ -109,6 +109,8 @@ func main() {
 	// workflow routes
 	mux.Handle("POST /api/changecontrols/{ccID}/submit",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSubmitForImplApproval)))
+	mux.Handle("POST /api/changecontrols/{ccID}/cancel",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerCancelChangeControl)))
 
 	server := &http.Server{
 		Addr:    ":1304",

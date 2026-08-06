@@ -303,3 +303,228 @@ func (cfg *apiConfig) HandlerSubmitForImplApproval(w http.ResponseWriter, r *htt
 
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }
+
+func (cfg *apiConfig) HandlerCancelChangeControl(w http.ResponseWriter, r *http.Request, user database.User) {
+	type CancelRequest struct {
+		CancellationReason string `json:"cancellation_reason"`
+		Email              string `json:"email"`
+		Password           string `json:"password"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	// extract and validate path parameter
+	ccIDRawStr := r.PathValue("ccID")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("cc cancellation failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// decode request body
+	reqBody := CancelRequest{}
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Warn("cc cancellation failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	// request validation
+	reqBody.CancellationReason = strings.TrimSpace(reqBody.CancellationReason)
+	if reqBody.CancellationReason == "" {
+		log.Warn("cc cancellation failed", "reason", "cancellation reason blank")
+		respondWithError(w, "Cancellation Reason cannot be blank", http.StatusBadRequest)
+		return
+	}
+	reqBody.Email = strings.TrimSpace(reqBody.Email)
+	if reqBody.Email == "" {
+		log.Warn("cc cancellation failed", "reason", "email blank")
+		respondWithError(w, "Email cannot be blank", http.StatusBadRequest)
+		return
+	}
+	if reqBody.Password == "" {
+		log.Warn("cc cancellation failed", "reason", "password blank")
+		respondWithError(w, "Password cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// max length — 500 runes
+	if len([]rune(reqBody.CancellationReason)) > 500 {
+		log.Warn("cc cancellation failed", "reason", "cancellation reason must be 500 characters or fewer", "cc_id", ccID)
+		respondWithError(w, "Cancellation Reason must be 500 characters or fewer", http.StatusBadRequest)
+		return
+	}
+	// open transaction
+	tx, err := cfg.rawDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "could not begin transaction", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+	qtx := cfg.db.WithTx(tx)
+	// retrieve cc details with intent of updating
+	cc, err := qtx.GetChangeControlForUpdate(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("cc cancellation failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("cc cancellation failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// ownership check
+	if user.ID != cc.ChangeOwnerID {
+		log.Warn("cc cancellation failed", "reason", "user is not owner of cc", "cc_id", ccID)
+		respondWithError(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	// state check
+	if cc.CurrentState != stateInitiated {
+		log.Warn("cc cancellation failed", "reason",
+			"cancellation only allowed from initiated state", "cc_id", ccID)
+		respondWithError(w, "Cancellation only allowed from Initiated state of CC", http.StatusConflict)
+		return
+	}
+	// use same timestamp for audit entry and e-sig entry
+	now := time.Now().UTC()
+	// e-sig credentials email check
+	if !strings.EqualFold(reqBody.Email, user.Email) {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   user.ID,
+			PerformedByName: user.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("cc cancellation failed", "reason", "email does not match")
+		if err != nil {
+			log.Error("cc cancellation failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// e-sig credentials password check
+	match, err := auth.CheckPasswordHash(reqBody.Password, user.HashedPassword)
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "password verification error", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if !match {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   user.ID,
+			PerformedByName: user.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("cc cancellation failed", "reason", "password mismatch")
+		if err != nil {
+			log.Error("cc cancellation failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// cancel change control
+	_, err = qtx.CancelChangeControl(r.Context(), database.CancelChangeControlParams{
+		CcID:                         ccID,
+		CurrentState:                 stateCancelled,
+		ImplementationApprovalStatus: approvalNA,
+		FinalApprovalStatus:          approvalNA,
+		CancellationReason:           strPtr(reqBody.CancellationReason),
+		LastUpdatedByID:              user.ID,
+	})
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "cc state update failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// e-sig table entry
+	err = qtx.InsertESignature(r.Context(), database.InsertESignatureParams{
+		ChangeControlID: cc.ID,
+		SignerID:        user.ID,
+		SignerName:      user.FullName,
+		Transition:      transitionT3,
+		Meaning:         meaningCancelled,
+		SignedOn:        now,
+	})
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "e-sig row insertion failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for state change
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionStateChanged,
+		FieldName:       strPtr("current_state"),
+		OldValue:        strPtr(stateInitiated),
+		NewValue:        strPtr(stateCancelled),
+		PerformedByID:   user.ID,
+		PerformedByName: user.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("cc cancellation failed", "reason",
+			"audit entry for cc state change to Cancelled failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for cancellation reason field
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("cancellation_reason"),
+		OldValue:        nil,
+		NewValue:        strPtr(reqBody.CancellationReason),
+		PerformedByID:   user.ID,
+		PerformedByName: user.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "audit entry for cancellation_reason field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for successful signature
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionSignatureCaptured,
+		PerformedByID:   user.ID,
+		PerformedByName: user.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "audit entry for signature capture failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// fetch for response
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// commit
+	err = tx.Commit()
+	if err != nil {
+		log.Error("cc cancellation failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	log.Info("cc cancelled", "cc_id", ccID, "new_state", stateCancelled)
+	// receives notification if previously assigned
+	if cc.AssignedApproverID != nil {
+		log.Info("notification pending", "type", "cc_cancelled", "cc_id", ccID, "recipient_id", *cc.AssignedApproverID)
+	}
+	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
+}

@@ -159,3 +159,14 @@ SET current_state = $2,
     last_updated_on = NOW()
 WHERE cc_id = $1
 RETURNING *;
+
+-- name: CancelChangeControl :one
+UPDATE change_controls
+SET current_state = $2,
+    implementation_approval_status = $3,
+    final_approval_status = $4,
+    cancellation_reason = $5,
+    last_updated_by_id = $6,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;
