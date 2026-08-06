@@ -4910,6 +4910,141 @@
               ],
               "cookie": [],
               "body": "{\n    \"error\": \"Assigned approver is deactivated\"\n}"
+            },
+            {
+              "name": "400 \"Field 'decision' cannot be edited…\"",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"decision\":\"Approve\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 07:28:14 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "68"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Field 'decision' cannot be edited in the Initiated state\"\n}"
+            },
+            {
+              "name": "400 — system field rejected",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"current_state\":\"Closed\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 07:28:41 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "73"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Field 'current_state' cannot be edited in the Initiated state\"\n}"
+            },
+            {
+              "name": "400 - multiple not allowed fields sent",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"decision\":\"Approve\",\"current_state\":\"Closed\",\"change_title\":\"ok\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 07:32:33 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "101"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Some fields cannot be edited in the Initiated state\",\n  \"issues\": [\n    \"current_state\",\n    \"decision\"\n  ]\n}"
             }
           ]
         },
