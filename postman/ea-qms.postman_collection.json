@@ -5444,6 +5444,495 @@
               "body": "{\n  \"error\": \"Submit for Implementation Approval only allowed at Initiated state of CC\"\n}\n\n"
             }
           ]
+        },
+        {
+          "name": "Cancel CC",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-999/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-999",
+                "cancel"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "cc not found 404",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-999/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-999",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:48:55 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Change Control not found\"\n}"
+            },
+            {
+              "name": "admin 403",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:49:35 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Forbidden\"\n}"
+            },
+            {
+              "name": "already Pending Impl Approval",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:50:12 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "64"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cancellation only allowed from Initiated state of CC\"\n}"
+            },
+            {
+              "name": "400 \"Cancellation Reason cannot be blank\"",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"owner@eaqms.local\",\"password\":\"DevPassw0rd!\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:51:09 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "47"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cancellation Reason cannot be blank\"\n}"
+            },
+            {
+              "name": "400 — whitespace-only",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"   \",\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:51:59 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "47"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cancellation Reason cannot be blank\"\n}"
+            },
+            {
+              "name": "Cancellation Reason must be 500 characters or fewer",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"The old typewriter sat on the dusty desk like a monument to forgotten stories. Its keys were stubborn, its ribbon faded, but it still carried the scent of ambition and late-night coffee. I pressed a letter, and the clack echoed through the quiet room—a sound that felt like a heartbeat. Each word I typed seemed heavier than the last, as if the machine demanded truth before it would release another character. I wrote about rain, about roads that led nowhere, about people who loved fiercely and left quietly. The page filled slowly, not with answers, but with questions that glowed faintly in the dim lamplight. And I realized then that writing is not about knowing where you are going. It is about trusting the journey of each sentence, even when the next word feels like a leap into darkness.\",\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:55:01 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "63"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cancellation Reason must be 500 characters or fewer\"\n}"
+            },
+            {
+              "name": "e-sig credentials wrong",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"The old typewriter.\",\r\n    \"email\": \"owner@eaqms2.local\",\r\n    \"password\": \"DevPassw02rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:55:40 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "31"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Invalid credentials\"\n}"
+            },
+            {
+              "name": "401 — BR-8.8.3",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"The old typewriter.\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:56:39 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "31"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Invalid credentials\"\n}"
+            },
+            {
+              "name": "Cancelled",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 09:59:25 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "1704"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"0912ccc0-528b-424e-896f-ba57bf379e9f\",\n  \"cc_id\": \"CC-003\",\n  \"current_state\": \"Cancelled\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-08-06T11:27:21.568162+04:00\",\n  \"last_updated_on\": \"2026-08-06T13:59:25.643911+04:00\",\n  \"change_title\": \"Valid field\",\n  \"change_description\": null,\n  \"change_type\": null,\n  \"change_category\": null,\n  \"department_function\": null,\n  \"affected_systems_modules\": null,\n  \"proposed_implementation_date\": null,\n  \"target_closure_date\": null,\n  \"implementation_window_start\": null,\n  \"implementation_window_end\": null,\n  \"reason_for_change\": null,\n  \"business_impact\": null,\n  \"expected_downtime\": null,\n  \"requires_testing\": null,\n  \"requires_training\": null,\n  \"risk_rationale\": null,\n  \"key_risks_mitigations\": null,\n  \"high_level_implementation_plan\": null,\n  \"validation_approach\": null,\n  \"success_criteria\": null,\n  \"rollback_backout_plan\": null,\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"assigned_approver_id\": null,\n  \"assigned_approver_name\": null,\n  \"comments_for_approver\": null,\n  \"decision\": null,\n  \"risk_level\": null,\n  \"decision_comments\": null,\n  \"implementation_approval_by_id\": null,\n  \"implementation_approval_by_name\": null,\n  \"implementation_approval_on\": null,\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"N/A\",\n  \"final_approval_status\": \"N/A\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\"\n}"
+            },
+            {
+              "name": "Cancel CC-003 again",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"cancellation_reason\": \"Vendor withdrew the firmware release; change no longer required\",\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-003/cancel",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-003",
+                    "cancel"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Thu, 06 Aug 2026 10:02:30 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "64"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cancellation only allowed from Initiated state of CC\"\n}"
+            }
+          ]
         }
       ]
     },
