@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -89,6 +90,21 @@ type ChangeControlResponse struct {
 	// Additional (BRD 49–50)
 	Comments           *string `json:"comments"`
 	CancellationReason *string `json:"cancellation_reason"`
+}
+
+// The 24 fields editable in the Initiated state. Any other key in a Save Draft
+// body is rejected rather than silently ignored, so a client cannot believe a
+// write applied when it did not. Must stay in sync with the field blocks below.
+var draftEditableFields = map[string]struct{}{
+	"change_title": {}, "change_description": {}, "change_type": {},
+	"change_category": {}, "department_function": {}, "affected_systems_modules": {},
+	"proposed_implementation_date": {}, "target_closure_date": {},
+	"implementation_window_start": {}, "implementation_window_end": {},
+	"reason_for_change": {}, "business_impact": {}, "expected_downtime": {},
+	"requires_testing": {}, "requires_training": {}, "risk_rationale": {},
+	"key_risks_mitigations": {}, "high_level_implementation_plan": {},
+	"validation_approach": {}, "success_criteria": {}, "rollback_backout_plan": {},
+	"assigned_approver_id": {}, "comments_for_approver": {}, "comments": {},
 }
 
 // toChangeControlResponse maps a joined change control row into the API shape.
@@ -399,6 +415,10 @@ func (cfg *apiConfig) HandlerListChangeControls(w http.ResponseWriter, r *http.R
 }
 
 func (cfg *apiConfig) HandlerSaveDraft(w http.ResponseWriter, r *http.Request, user database.User) {
+	type validationErrorResponse struct {
+		Error  string   `json:"error"`
+		Issues []string `json:"issues"`
+	}
 	log := logging.LoggerFrom(r.Context())
 	// extract path parameter
 	ccIDRawStr := r.PathValue("ccID")
@@ -421,6 +441,24 @@ func (cfg *apiConfig) HandlerSaveDraft(w http.ResponseWriter, r *http.Request, u
 	if len(body) == 0 {
 		log.Warn("save draft failed", "reason", "no fields to update")
 		respondWithError(w, "No fields to update", http.StatusBadRequest)
+		return
+	}
+	// reject unknown or non-editable keys — collected, so a client with several
+	// bad keys learns all of them in one response
+	var invalidFields []string
+	for key := range body {
+		if _, ok := draftEditableFields[key]; !ok {
+			invalidFields = append(invalidFields, key)
+		}
+	}
+	if len(invalidFields) > 0 {
+		sort.Strings(invalidFields)
+		log.Warn("save draft failed", "reason", "fields not editable in this state",
+			"cc_id", ccID, "invalid_count", len(invalidFields))
+		respondWithJSON(w, http.StatusBadRequest, validationErrorResponse{
+			Error:  "Some fields cannot be edited in the Initiated state",
+			Issues: invalidFields,
+		})
 		return
 	}
 	// open transaction
