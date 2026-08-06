@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 21 — **T2 submit** · **14 of 22 · the hardest endpoint is done**
-- **Next task:** checkpoint 22 — **T3 cancel** (endpoint 16)
+- **Last checkpoint:** 22 — **T3 cancel** · **15 of 22**
+- **Next task:** checkpoint 23 — **T4/T5 decision** (endpoint 17) — then extract the shared helpers
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -26,7 +26,7 @@ guardrail docs carry the substance and are always attached.
 | API — Group 1 Auth (1–3)            | ✅ Complete                                       |
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
 | API — Group 3 CCs (10–13)           | ✅ Complete                                       |
-| API — Group 5 Workflow (15–19)      | 🔵 **1 / 5** — T2 ✅ (written fully inline)       |
+| API — Group 5 Workflow (15–19)      | 🔵 **2 / 5** — T2 ✅, T3 ✅ (both fully inline)   |
 | API — Groups 4, 6, 7 (14, 20–22)    | ⬜ Dashboard, files, signatures                   |
 
 ---
@@ -1079,35 +1079,88 @@ error and the record's state agree.** Applied to Save Draft as well.
 
 ---
 
+### ✅ Checkpoint 22 — **T3 cancel** · `POST /api/changecontrols/{ccID}/cancel` (endpoint 16 of 22)
+
+`Initiated` → **`Cancelled`**. Owner-only, `Initiated`-only. **Terminal** — BRD §2.2: no
+editable fields, no actions, permanent.
+
+Reuses T2's shape almost entirely. What differs:
+
+|                     | T2                                      | T3                                                        |
+| ------------------- | --------------------------------------- | --------------------------------------------------------- |
+| Body                | `{email, password}`                     | `{cancellation_reason, email, password}`                  |
+| Presence validation | 20 fields                               | **none** — a draft may be abandoned at any completeness   |
+| Writes              | state + impl status                     | state + **both** statuses → `N/A` + `cancellation_reason` |
+| Audit rows          | 2                                       | **3** — plus `FieldUpdated` for the reason                |
+| Signature meaning   | `Submitted for Implementation Approval` | `Cancelled`                                               |
+| Notification        | unconditional                           | **conditional** on an approver having been assigned       |
+
+**`cancellation_reason` is written here and nowhere else.** Save Draft deliberately excludes
+it — the field reference specifies _"captured via cancellation modal only — never an inline
+form field"_, and it is _"permanently read-only once saved"_. Mandatory, max 500 runes,
+whitespace-only rejected. It **is** audited (BRD SC-5 lists it among critical field changes),
+with `old_value` always null since nothing could have written it before.
+
+**The notification is conditional** (`cc.AssignedApproverID != nil`) because §2.2 says the
+approver is notified _"if previously assigned"_ — and T3 requires no approver, so a
+half-filled draft may have none. At T2 the check is unnecessary: presence validation
+guarantees one exists.
+
+| Check                                                                                                           | Verified |
+| --------------------------------------------------------------------------------------------------------------- | -------- |
+| 404 / 403 / 409 / 401 gates                                                                                     | ✅       |
+| Blank, whitespace-only and 501-rune reasons → 400; **500 runes passes**                                         | ✅       |
+| Wrong password → 401 · valid credentials for another user → 401                                                 | ✅       |
+| Two `SignatureFailed` rows written, record still `Initiated`                                                    | ✅       |
+| Success: both statuses `N/A`, reason stored                                                                     | ✅       |
+| **Four rows across two tables sharing one timestamp**                                                           | ✅       |
+| Audit reads standalone: `StateChanged` (Initiated→Cancelled), `FieldUpdated` (null→reason), `SignatureCaptured` | ✅       |
+| **`Cancelled` is terminal** — cancel, save draft and submit all 409 afterwards (SC-7)                           | ✅       |
+
+**Incidental confirmation:** a Save Draft against the cancelled record hit the
+**non-editable-key check before the state check** — the key validation runs before the
+transaction opens, so the cheapest rejection happens first.
+
+**The signature block is now duplicated verbatim twice.** After T4/T5 it will be three, which
+is §0's threshold — `verifySignature` gets extracted at checkpoint 23, with three real
+examples rather than one guess.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 22 — **T3 cancel** (endpoint 16)
+### ⬜ Checkpoint 23 — **T4 / T5 decision** (endpoint 17)
 
-`POST /api/changecontrols/{ccID}/cancel` — `Initiated` → **`Cancelled`** (terminal).
-Owner-only, `Initiated`-only.
+`POST /api/changecontrols/{ccID}/decision` — **one endpoint, two outcomes**:
 
-**Reuses T2's shape almost entirely** — same gates, same signature block, same failure path,
-same transaction pattern. What differs:
+|                | From                  | To                    | `implementation_approval_status` |
+| -------------- | --------------------- | --------------------- | -------------------------------- |
+| **T4 approve** | Pending Impl Approval | **In Implementation** | `Approved`                       |
+| **T5 reject**  | Pending Impl Approval | **Initiated**         | ? — needs deciding               |
 
-|                     | T2                                      | T3                                                               |
-| ------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| Body                | `{email, password}`                     | `{cancellation_reason, email, password}`                         |
-| Presence validation | 20 fields                               | **none** — a draft may be abandoned at any completeness          |
-| Writes              | state + impl status                     | state + **both** statuses → `N/A` + `cancellation_reason`        |
-| Audit rows          | `StateChanged`, `SignatureCaptured`     | those **plus `FieldUpdated`** for `cancellation_reason` (§6.6.2) |
-| Signature meaning   | `Submitted for Implementation Approval` | `Cancelled`                                                      |
+**First endpoint restricted to the Approver**, and to the _assigned_ one — the check is
+`cc.AssignedApproverID == user.ID`, not a role check, so ownership logic mirrors T2/T3's
+owner check rather than using `requireRole`.
 
-**`cancellation_reason` (field 50)** — mandatory at T3, max **500**, not empty/whitespace,
-**permanently read-only once saved**, and _"captured via cancellation modal only — never an
-inline form field"_. That is why Save Draft deliberately excludes it.
+**Three audited fields** (§6.6.2): `decision`, `risk_level`, `decision_comments`. So a single
+T4 writes **five** audit rows — three `FieldUpdated`, plus `StateChanged` and
+`SignatureCaptured` — all on one timestamp. The most rows any action produces.
 
-**Terminal state** — nothing transitions out of `Cancelled`. Worth confirming no later
-endpoint accepts it as a starting state.
+**Rejection does NOT populate `implementation_approval_by_id` / `_on`** (per the API plan) —
+those record who _approved_, and a rejection is not an approval.
 
-**After T3 comes T4/T5 (endpoint 17)**, and _then_ the helpers get extracted — §0 wants three
-transitions written inline first, so `verifySignature` and the audit-writing pattern will have
-three real examples rather than one guess. The signature block is already duplicated verbatim
-between T2's two failure branches; expect it to be the first thing pulled out.
+**Decisions needed before writing:**
+
+1. What does `implementation_approval_status` become on **rejection**? Back to `Not Submitted`,
+   or stay `Pending`? Nothing states it. `Not Submitted` seems right — the record is a draft
+   again and must be resubmitted.
+2. Is `decision_comments` mandatory on rejection? A rejection without a reason is unhelpful,
+   but the field reference marks it optional.
+3. `risk_level` — mandatory at T4/T5 or only on approval?
+
+**Then extract** (§0's threshold, three transitions written inline): `verifySignature` is the
+obvious first candidate — the block is already verbatim-identical across T2 and T3. The audit
+row construction is the second.
 
 ---
 
