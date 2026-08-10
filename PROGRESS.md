@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 22 — **T3 cancel** · **15 of 22**
-- **Next task:** checkpoint 23 — **T4/T5 decision** (endpoint 17) — then extract the shared helpers
+- **Last checkpoint:** 23 — **T4/T5 decision** · **16 of 22 · three transitions written inline**
+- **Next task:** checkpoint 24 — **extract the shared helpers** (§0's threshold reached), then files (20–21)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -16,18 +16,18 @@ guardrail docs carry the substance and are always attached.
 
 ## Phase status
 
-| Phase                               | State                                             |
-| ----------------------------------- | ------------------------------------------------- |
-| Migrations (001–006)                | ✅ Complete — all six tables applied and verified |
-| sqlc setup                          | ✅ Complete — pointer types working under lib/pq  |
-| `internal/auth` (argon2id)          | ✅ Complete — hashing + tests + app wiring        |
-| `cmd/seed`                          | ✅ Complete — 4 users seeded and verified         |
-| Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end       |
-| API — Group 1 Auth (1–3)            | ✅ Complete                                       |
-| API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
-| API — Group 3 CCs (10–13)           | ✅ Complete                                       |
-| API — Group 5 Workflow (15–19)      | 🔵 **2 / 5** — T2 ✅, T3 ✅ (both fully inline)   |
-| API — Groups 4, 6, 7 (14, 20–22)    | ⬜ Dashboard, files, signatures                   |
+| Phase                               | State                                              |
+| ----------------------------------- | -------------------------------------------------- |
+| Migrations (001–006)                | ✅ Complete — all six tables applied and verified  |
+| sqlc setup                          | ✅ Complete — pointer types working under lib/pq   |
+| `internal/auth` (argon2id)          | ✅ Complete — hashing + tests + app wiring         |
+| `cmd/seed`                          | ✅ Complete — 4 users seeded and verified          |
+| Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end        |
+| API — Group 1 Auth (1–3)            | ✅ Complete                                        |
+| API — Group 2 Users & Profile (4–9) | ✅ Complete                                        |
+| API — Group 3 CCs (10–13)           | ✅ Complete                                        |
+| API — Group 5 Workflow (15–19)      | 🔵 **3 / 5** — T2 ✅, T3 ✅, T4/T5 ✅ (all inline) |
+| API — Groups 4, 6, 7 (14, 20–22)    | ⬜ Dashboard, files, signatures                    |
 
 ---
 
@@ -1127,40 +1127,90 @@ examples rather than one guess.
 
 ---
 
+### ✅ Checkpoint 23 — **T4 / T5 decision** · `POST /api/changecontrols/{ccID}/decision` (endpoint 17 of 22)
+
+**One endpoint, two outcomes.** BRD §2.2: _"there is a single Submit Decision button… the
+system reads the value of the Decision field"_ — so the transition is driven by the **payload**,
+not the route.
+
+|                | From                  | To                    | `implementation_approval_status` | `by`/`on`     |
+| -------------- | --------------------- | --------------------- | -------------------------------- | ------------- |
+| **T4 approve** | Pending Impl Approval | **In Implementation** | `Approved`                       | **populated** |
+| **T5 reject**  | Pending Impl Approval | **Initiated**         | `Not Submitted` (decision #34)   | **untouched** |
+
+**Restricted to the _assigned_ approver** — `cc.AssignedApproverID == user.ID`, checked at
+**record level, not by role**. A CC Owner on a record in the correct state still gets 403;
+segregation of duties (BR-8.3.1) is about who was assigned, not what role they hold. The nil
+check comes first — a CC in this state always has an approver, but dereferencing a broken
+invariant would panic.
+
+**All three fields mandatory on both paths** — the field reference is explicit that
+`decision_comments` is _"used for both Approve and Reject (no separate rejection field)"_, and
+`risk_level` is mandatory at T4/T5. So validation does not branch; only the writes do.
+
+**Two update queries**, because fields 40/41 are _"populated on Approve ONLY — never on
+Reject"_. The reject query simply **omits** them, leaving them untouched rather than nulling
+them. `implementation_approval_on` is a **parameter**, not `NOW()`, so it carries the same
+instant as the audit rows and the signature.
+
+**The branch block sets everything together** — meaning, `newState`, approval status,
+transition code and notification type — so the two paths cannot drift apart.
+
+**Five audit rows, the most any action produces:** `StateChanged`, three `FieldUpdated`, and
+`SignatureCaptured`, all on one timestamp.
+
+| Check                                                                                                               | Verified |
+| ------------------------------------------------------------------------------------------------------------------- | -------- |
+| 404 · **403 as CC Owner** (right state, wrong person) · 403 as Admin · 409 · 401                                    | ✅       |
+| `"Approved"` (past tense) → 400 · invalid risk level → 400 · 2001-char comments → 400                               | ✅       |
+| Wrong password → 401 · another user's valid credentials → 401, record unmoved                                       | ✅       |
+| **Reject:** → `Initiated`, status `Not Submitted`, **`by`/`on` still null**                                         | ✅       |
+| Owner then edited the rollback plan — **Initiated rules hold verbatim after rejection**                             | ✅       |
+| **Approve:** → `In Implementation`, status `Approved`, **`by`/`on` populated**                                      | ✅       |
+| **`implementation_approval_on` matches the audit `created_on` byte-for-byte** — one instant across **three** tables | ✅       |
+| Post-approval: decision, save draft, submit and cancel all 409                                                      | ✅       |
+
+**The critical verification — the overwrite.** §3.5.1 says a re-review _overwrites_ the
+previous decision values and _"the old rejection values are preserved in the audit log."_ A
+full reject → edit → resubmit → approve cycle on CC-001 produced:
+
+```
+15:28  decision  null   → Reject     risk_level  null → High
+15:57  decision  Reject → Approve    risk_level  High → Medium
+```
+
+The record itself now holds only `Approve`/`Medium`. **The audit trail is the sole surviving
+record that a rejection ever happened** — which works only because `old_value` is read from the
+loaded record rather than defaulted to nil.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 23 — **T4 / T5 decision** (endpoint 17)
+### ⬜ Checkpoint 24 — **extract the shared helpers**, then files
 
-`POST /api/changecontrols/{ccID}/decision` — **one endpoint, two outcomes**:
+**§0's threshold is reached.** Three transitions are now written fully inline, so the
+repetition is _observed_ rather than predicted — and it is substantial:
 
-|                | From                  | To                    | `implementation_approval_status` |
-| -------------- | --------------------- | --------------------- | -------------------------------- |
-| **T4 approve** | Pending Impl Approval | **In Implementation** | `Approved`                       |
-| **T5 reject**  | Pending Impl Approval | **Initiated**         | ? — needs deciding               |
+| Candidate                  | Duplication                                                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **the signature block**    | **verbatim in T2, T3 and T4/T5** — email `EqualFold`, argon2id, and both `SignatureFailed` writes via `cfg.db`. ~35 lines × 3 |
+| **the gates**              | path param → decode → `BeginTx` → `GetChangeControlForUpdate` → 404 → ownership → state → 409                                 |
+| **audit row construction** | `entityChangeControl`, `cc.ID`, `performed_by_*`, `now` repeat on every one of the ten rows written so far                    |
+| **the tail**               | re-fetch → commit → success log → notification stub → respond                                                                 |
 
-**First endpoint restricted to the Approver**, and to the _assigned_ one — the check is
-`cc.AssignedApproverID == user.ID`, not a role check, so ownership logic mirrors T2/T3's
-owner check rather than using `requireRole`.
+`verifySignature` is the obvious first extraction — it is the largest block and the most
+error-prone, since a `qtx` slipping in where `cfg.db` belongs would silently discard the
+failed-attempt record.
 
-**Three audited fields** (§6.6.2): `decision`, `risk_level`, `decision_comments`. So a single
-T4 writes **five** audit rows — three `FieldUpdated`, plus `StateChanged` and
-`SignatureCaptured` — all on one timestamp. The most rows any action produces.
+**Take care with what it returns.** The block writes an audit row _and_ responds _and_ returns;
+a helper cannot do all three cleanly. Likely shape: it performs the checks and the audit write,
+and returns a bool or error for the caller to act on — keeping `respondWithError` at the call
+site so the handler still owns its responses.
 
-**Rejection does NOT populate `implementation_approval_by_id` / `_on`** (per the API plan) —
-those record who _approved_, and a rejection is not an approval.
-
-**Decisions needed before writing:**
-
-1. What does `implementation_approval_status` become on **rejection**? Back to `Not Submitted`,
-   or stay `Pending`? Nothing states it. `Not Submitted` seems right — the record is a draft
-   again and must be resubmitted.
-2. Is `decision_comments` mandatory on rejection? A rejection without a reason is unhelpful,
-   but the field reference marks it optional.
-3. `risk_level` — mandatory at T4/T5 or only on approval?
-
-**Then extract** (§0's threshold, three transitions written inline): `verifySignature` is the
-obvious first candidate — the block is already verbatim-identical across T2 and T3. The audit
-row construction is the second.
+**Then, in build order: files (20, 21) → T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
+Files come before T6 because T6 must verify an evidence file exists, which cannot be tested
+until upload works.
 
 ---
 
@@ -1263,6 +1313,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 31  | **A failed signature writes its audit row with `cfg.db`, outside the transaction**                                                                                                                                                                                                                         | FR-6.2.31 requires the failed attempt recorded _and_ the record left untouched. Written with `qtx` the row would be discarded by the same rollback that reverts the transition, leaving no evidence — a compliance failure with no visible symptom. This is the **single deliberate exception to rule 7** ("inside a transaction use `qtx`, never `cfg.db`") and carries a comment saying so, or a future reader will "fix" it. Verified: three failed signature attempts left three audit rows while `current_state` stayed `Initiated`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 32  | **The response re-fetch happens INSIDE the transaction, before the commit** — supersedes the second half of #29                                                                                                                                                                                            | Reading after the commit leaves a window where the write succeeded but the client sees a 500. For Save Draft that was tolerable (a retry is a harmless no-op); **for a transition it is not** — the retry hits a **409**, because the state has already moved, so the user is told "something went wrong" and then "this isn't in Initiated state." Reading before the commit means any failure leaves nothing written: **the error and the record's state agree.** A transaction reads its own uncommitted writes, so the joined read still returns post-update values. Applied to Save Draft as well                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 33  | **Save Draft rejects request keys that are not editable in the current state, rather than silently ignoring them**                                                                                                                                                                                         | Decoding into a map means unknown keys are simply never looked up — safe, and the conventional behaviour for JSON APIs, but it produced a **200 for a request that wrote nothing**. In a regulated system "the API said OK and did nothing" is worse than a 400. Applied **only to Save Draft**: it has 24 known keys out of 50 possible CC columns, so a client can plausibly believe `decision` or `actual_implementation_date` applied. The 2–4 field bodies elsewhere (login, transitions) are not confusable, so `DisallowUnknownFields` was deliberately **not** added to them — strictness there would buy nothing and break on a harmless extra field. Cost: `draftEditableFields` must stay in sync with the 24 blocks; drift fails loudly (a valid field gets rejected), which is the safe direction                                                                                                                                                                                                                                                          |
+| 34  | **On rejection (T5), `implementation_approval_status` returns to `Not Submitted`**                                                                                                                                                                                                                         | No guardrail doc states what it becomes. The record is a draft again and must be resubmitted through T2, so `Not Submitted` mirrors a fresh draft exactly; leaving it `Pending` would misrepresent the record as still awaiting a decision when nobody is looking at it. Note the _decision fields themselves_ are **not** cleared — `decision`, `risk_level` and `decision_comments` keep the rejection values until a re-review overwrites them (§3.5.1), so the CC Owner can see why it came back                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ---
 
