@@ -111,6 +111,8 @@ func main() {
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSubmitForImplApproval)))
 	mux.Handle("POST /api/changecontrols/{ccID}/cancel",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerCancelChangeControl)))
+	mux.Handle("POST /api/changecontrols/{ccID}/decision",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerImplementationDecision)))
 
 	server := &http.Server{
 		Addr:    ":1304",

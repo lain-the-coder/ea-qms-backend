@@ -117,3 +117,24 @@ const (
 	meaningApprovedFinalApproval  = "Approved - Final Approval"             // T7
 	meaningRejectedFinalApproval  = "Rejected - Final Approval"             // T8
 )
+
+// Decision — ck_cc_decision / ck_cc_final_decision
+const (
+	decisionApprove = "Approve"
+	decisionReject  = "Reject"
+)
+
+// Risk level — ck_cc_risk_level
+const (
+	riskLow    = "Low"
+	riskMedium = "Medium"
+	riskHigh   = "High"
+)
+
+// Notification types — Phase 1 logs these; SMTP is deferred (FR-6.4.1)
+const (
+	notifySubmittedForApproval = "submitted_for_approval" // T2 → approver
+	notifyCCCancelled          = "cc_cancelled"           // T3 → approver, if assigned
+	notifyCCApproved           = "cc_approved"            // T4 → owner
+	notifyCCRejected           = "cc_rejected"            // T5 → owner
+)

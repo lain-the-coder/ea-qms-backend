@@ -298,7 +298,7 @@ func (cfg *apiConfig) HandlerSubmitForImplApproval(w http.ResponseWriter, r *htt
 		"new_state", statePendingImplApproval, "approver_id", cc.AssignedApproverID)
 
 	// email notification deferred for first release (FR-6.4.1 — no SMTP in Phase 1)
-	log.Info("notification pending", "type", "submitted_for_approval",
+	log.Info("notification pending", "type", notifySubmittedForApproval,
 		"cc_id", ccID, "recipient_id", cc.AssignedApproverID)
 
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
@@ -524,7 +524,332 @@ func (cfg *apiConfig) HandlerCancelChangeControl(w http.ResponseWriter, r *http.
 	log.Info("cc cancelled", "cc_id", ccID, "new_state", stateCancelled)
 	// receives notification if previously assigned
 	if cc.AssignedApproverID != nil {
-		log.Info("notification pending", "type", "cc_cancelled", "cc_id", ccID, "recipient_id", *cc.AssignedApproverID)
+		log.Info("notification pending", "type", notifyCCCancelled, "cc_id", ccID, "recipient_id", *cc.AssignedApproverID)
 	}
+	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
+}
+
+func (cfg *apiConfig) HandlerImplementationDecision(w http.ResponseWriter, r *http.Request, approver database.User) {
+	type DecisionRequest struct {
+		Decision         string `json:"decision"`
+		RiskLevel        string `json:"risk_level"`
+		DecisionComments string `json:"decision_comments"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	// extract and validate path parameter
+	ccIDRawStr := r.PathValue("ccID")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("implementation decision failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// decode request body
+	reqBody := DecisionRequest{}
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Warn("implementation decision failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	// request validation
+	// decision field validation
+	reqBody.Decision = strings.TrimSpace(reqBody.Decision)
+	if reqBody.Decision == "" {
+		log.Warn("implementation decision failed", "reason", "decision blank")
+		respondWithError(w, "Decision cannot be blank", http.StatusBadRequest)
+		return
+	}
+	switch reqBody.Decision {
+	case decisionApprove, decisionReject:
+	default:
+		log.Warn("implementation decision failed", "reason", "invalid decision parameter value", "decision", reqBody.Decision)
+		respondWithError(w, "Invalid decision", http.StatusBadRequest)
+		return
+	}
+	// risk level field validation
+	reqBody.RiskLevel = strings.TrimSpace(reqBody.RiskLevel)
+	if reqBody.RiskLevel == "" {
+		log.Warn("implementation decision failed", "reason", "risk level blank")
+		respondWithError(w, "Risk Level cannot be blank", http.StatusBadRequest)
+		return
+	}
+	switch reqBody.RiskLevel {
+	case riskLow, riskMedium, riskHigh:
+	default:
+		log.Warn("implementation decision failed", "reason", "invalid risk level parameter value", "risk_level", reqBody.RiskLevel)
+		respondWithError(w, "Invalid risk level", http.StatusBadRequest)
+		return
+	}
+	// decision comments field validation
+	reqBody.DecisionComments = strings.TrimSpace(reqBody.DecisionComments)
+	if reqBody.DecisionComments == "" {
+		log.Warn("implementation decision failed", "reason", "decision comments blank")
+		respondWithError(w, "Decision Comments cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// max length — 2000 runes
+	if len([]rune(reqBody.DecisionComments)) > 2000 {
+		log.Warn("implementation decision failed", "reason", "Decision Comments must be 2000 characters or fewer", "cc_id", ccID)
+		respondWithError(w, "Decision Comments must be 2000 characters or fewer", http.StatusBadRequest)
+		return
+	}
+	// email validation
+	reqBody.Email = strings.TrimSpace(reqBody.Email)
+	if reqBody.Email == "" {
+		log.Warn("implementation decision failed", "reason", "email blank")
+		respondWithError(w, "Email cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// password validation
+	if reqBody.Password == "" {
+		log.Warn("implementation decision failed", "reason", "password blank")
+		respondWithError(w, "Password cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// open transaction
+	tx, err := cfg.rawDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "could not begin transaction", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+	qtx := cfg.db.WithTx(tx)
+	// retrieve cc details with intent of updating
+	cc, err := qtx.GetChangeControlForUpdate(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("implementation decision failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("implementation decision failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// approver ownership check
+	// nil check first since Assigned Approver field is nullable unlike Change Owner field
+	if cc.AssignedApproverID == nil || *cc.AssignedApproverID != approver.ID {
+		log.Warn("implementation decision failed", "reason", "user is not approver of cc", "cc_id", ccID)
+		respondWithError(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	// state check
+	if cc.CurrentState != statePendingImplApproval {
+		log.Warn("implementation decision failed", "reason",
+			"implementation approval only allowed from Pending Implementation Approval state", "cc_id", ccID)
+		respondWithError(w, "Implementation Approval only allowed from Pending Implementation Approval state of CC",
+			http.StatusConflict)
+		return
+	}
+	// use same timestamp for audit entry and e-sig entry
+	now := time.Now().UTC()
+	// e-sig credentials email check
+	if !strings.EqualFold(reqBody.Email, approver.Email) {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   approver.ID,
+			PerformedByName: approver.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("implementation decision failed", "reason", "email does not match")
+		if err != nil {
+			log.Error("implementation decision failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// e-sig credentials password check
+	match, err := auth.CheckPasswordHash(reqBody.Password, approver.HashedPassword)
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "password verification error", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if !match {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   approver.ID,
+			PerformedByName: approver.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("implementation decision failed", "reason", "password mismatch")
+		if err != nil {
+			log.Error("implementation decision failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// setting values based on approval/reject branches
+	meaning := meaningApprovedImplApproval
+	newState := stateInImplementation
+	implementationApprovalStatus := approvalApproved
+	transition := transitionT4
+	notifType := notifyCCApproved
+	if reqBody.Decision == decisionReject {
+		meaning = meaningRejectedImplApproval
+		newState = stateInitiated
+		implementationApprovalStatus = approvalNotSubmitted
+		transition = transitionT5
+		notifType = notifyCCRejected
+	}
+	// update CC branching based on decision - approve/reject
+	if reqBody.Decision == decisionApprove {
+		_, err := qtx.ApproveImplementation(r.Context(), database.ApproveImplementationParams{
+			CcID:                         ccID,
+			CurrentState:                 newState,
+			ImplementationApprovalStatus: implementationApprovalStatus,
+			Decision:                     strPtr(reqBody.Decision),
+			RiskLevel:                    strPtr(reqBody.RiskLevel),
+			DecisionComments:             strPtr(reqBody.DecisionComments),
+			ImplementationApprovalByID:   &approver.ID,
+			ImplementationApprovalOn:     &now,
+			LastUpdatedByID:              approver.ID,
+		})
+		if err != nil {
+			log.Error("implementation decision failed", "reason", "cc approve update failed", "cc_id", ccID, "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		_, err := qtx.RejectImplementation(r.Context(), database.RejectImplementationParams{
+			CcID:                         ccID,
+			CurrentState:                 newState,
+			ImplementationApprovalStatus: implementationApprovalStatus,
+			Decision:                     strPtr(reqBody.Decision),
+			RiskLevel:                    strPtr(reqBody.RiskLevel),
+			DecisionComments:             strPtr(reqBody.DecisionComments),
+			LastUpdatedByID:              approver.ID,
+		})
+		if err != nil {
+			log.Error("implementation decision failed", "reason", "cc reject update failed", "cc_id", ccID, "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	}
+	// e-sig table entry
+	err = qtx.InsertESignature(r.Context(), database.InsertESignatureParams{
+		ChangeControlID: cc.ID,
+		SignerID:        approver.ID,
+		SignerName:      approver.FullName,
+		Transition:      transition,
+		Meaning:         meaning,
+		SignedOn:        now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "e-sig row insertion failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for state change
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionStateChanged,
+		FieldName:       strPtr("current_state"),
+		OldValue:        strPtr(statePendingImplApproval),
+		NewValue:        strPtr(newState),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason",
+			"audit entry for cc state change failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for decision, risk level and decision comments fields
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("decision"),
+		OldValue:        cc.Decision,
+		NewValue:        strPtr(reqBody.Decision),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "audit entry for decision field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("risk_level"),
+		OldValue:        cc.RiskLevel,
+		NewValue:        strPtr(reqBody.RiskLevel),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "audit entry for risk level field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("decision_comments"),
+		OldValue:        cc.DecisionComments,
+		NewValue:        strPtr(reqBody.DecisionComments),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "audit entry for decision comments field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for successful signature
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionSignatureCaptured,
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "audit entry for signature capture failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// fetch for response
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// commit
+	err = tx.Commit()
+	if err != nil {
+		log.Error("implementation decision failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	log.Info("cc implementation decision recorded", "cc_id", ccID, "new_state", newState, "decision", reqBody.Decision)
+	// email notification deferred for first release (FR-6.4.1 — no SMTP in Phase 1)
+	log.Info("notification pending", "type", notifType, "cc_id", ccID, "recipient_id", cc.ChangeOwnerID)
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }

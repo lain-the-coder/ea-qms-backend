@@ -170,3 +170,29 @@ SET current_state = $2,
     last_updated_on = NOW()
 WHERE cc_id = $1
 RETURNING *;
+
+-- name: ApproveImplementation :one
+UPDATE change_controls
+SET current_state = $2,
+    implementation_approval_status = $3,
+    decision = $4,
+    risk_level = $5,
+    decision_comments = $6,
+    implementation_approval_by_id = $7,
+    implementation_approval_on = $8,
+    last_updated_by_id = $9,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;
+
+-- name: RejectImplementation :one
+UPDATE change_controls
+SET current_state = $2,
+    implementation_approval_status = $3,
+    decision = $4,
+    risk_level = $5,
+    decision_comments = $6,
+    last_updated_by_id = $7,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;
