@@ -16,17 +16,10 @@
             {
               "listen": "test",
               "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {\r",
-                  "      const body = pm.response.json();\r",
-                  "      pm.environment.set(\"token\", body.token);\r",
-                  "      pm.environment.set(\"refresh_token\", body.refresh_token);\r",
-                  "      console.log(\"Logged in as \" + body.role);\r",
-                  "  }"
-                ],
                 "type": "text/javascript",
-                "packages": {},
-                "requests": {}
+                "exec": [
+                  "if (pm.response.code === 200) {\r\n      const body = pm.response.json();\r\n      pm.environment.set(\"token\", body.token);\r\n      pm.environment.set(\"refresh_token\", body.refresh_token);\r\n      console.log(\"Logged in as \" + body.role);\r\n  }"
+                ]
               }
             }
           ],
@@ -38,7 +31,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+              "raw": "{\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3812,7 +3805,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"assigned_approver_id\": \"13d25f19-36d3-4d0f-8652-75f2b78422e6\"\r\n}",
+              "raw": "{\r\n  \"change_title\": \"Kiosk receipt printer firmware update\",\r\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\r\n  \"change_type\": \"Hardware\",\r\n  \"change_category\": \"Normal\",\r\n  \"department_function\": \"IT\",\r\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\r\n  \"proposed_implementation_date\": \"2026-10-15T00:00:00Z\",\r\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\r\n  \"implementation_window_start\": null,\r\n  \"implementation_window_end\": null,\r\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\r\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\r\n  \"expected_downtime\": \"Yes\",\r\n  \"requires_testing\": \"Yes - Full testing\",\r\n  \"requires_training\": \"No\",\r\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\r\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\r\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\r\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\r\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\r\n  \"rollback_backout_plan\": \"Reflash previous firmware v2.3.8 from the vendor image\",\r\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3820,13 +3813,13 @@
               }
             },
             "url": {
-              "raw": "{{baseUrl}}/changecontrols/CC-001",
+              "raw": "{{baseUrl}}/changecontrols/CC-004",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "changecontrols",
-                "CC-001"
+                "CC-004"
               ]
             }
           },
@@ -5047,404 +5040,16 @@
               "body": "{\n  \"error\": \"Some fields cannot be edited in the Initiated state\",\n  \"issues\": [\n    \"current_state\",\n    \"decision\"\n  ]\n}"
             }
           ]
-        },
-        {
-          "name": "Submit For Implementation Approval",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/changecontrols//submit",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "changecontrols",
-                "",
-                "submit"
-              ]
-            }
-          },
-          "response": [
-            {
-              "name": "Submit For Implementation Approval",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:11:05 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "84"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n    \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n    \"cc_id\": \"CC-002\",\n    \"current_state\": \"Pending Implementation Approval\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"last_updated_on\": \"2026-08-06T02:09:28.363964+04:00\",\n    \"change_title\": \"Kiosk receipt printer firmware update\",\n    \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n    \"change_type\": \"Hardware\",\n    \"change_category\": \"Normal\",\n    \"department_function\": \"IT\",\n    \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n    \"proposed_implementation_date\": \"2026-10-15T00:00:00Z\",\n    \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n    \"implementation_window_start\": null,\n    \"implementation_window_end\": null,\n    \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n    \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n    \"expected_downtime\": \"Yes\",\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": \"No\",\n    \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n    \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n    \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n    \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n    \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n    \"rollback_backout_plan\": \"Reflash previous firmware v2.3.8 from the vendor image\",\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n    \"assigned_approver_name\": \"Default Approver\",\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Pending\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
-            },
-            {
-              "name": "400, missing_fields",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-001/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-001",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 21:30:59 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "406"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Change Category\",\n    \"Department / Function\",\n    \"Affected Systems / Modules\",\n    \"Target Closure Date\",\n    \"Reason for Change\",\n    \"Business Impact\",\n    \"Expected Downtime\",\n    \"Requires Training\",\n    \"Risk Rationale\",\n    \"Key Risks & Mitigations\",\n    \"High-Level Implementation Plan\",\n    \"Validation Approach\",\n    \"Success Criteria\",\n    \"Rollback / Backout Plan\",\n    \"Assigned Approver\"\n  ]\n}"
-            },
-            {
-              "name": "Email Blank",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:02:22 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "33"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Email cannot be blank\"\n}"
-            },
-            {
-              "name": "400, \"at least 2 business days\"",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:04:20 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "142"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Proposed Implementation Date must be at least 2 business days from today\"\n  ]\n}"
-            },
-            {
-              "name": "400, \"at least 10 business days\"",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:04:54 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "134"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Target Closure Date must be at least 10 business days from today\"\n  ]\n}"
-            },
-            {
-              "name": "400, both date validations",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:05:24 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "209"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Proposed Implementation Date must be at least 2 business days from today\",\n    \"Target Closure Date must be at least 10 business days from today\"\n  ]\n}"
-            },
-            {
-              "name": "password blank",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\"email\":\"owner@eaqms.local\",\"password\":\"\"}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:06:58 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "36"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Password cannot be blank\"\n}"
-            },
-            {
-              "name": "Submit CC-002 again",
-              "originalRequest": {
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
-                "url": {
-                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
-                  "host": [
-                    "{{baseUrl}}"
-                  ],
-                  "path": [
-                    "changecontrols",
-                    "CC-002",
-                    "submit"
-                  ]
-                }
-              },
-              "status": "Conflict",
-              "code": 409,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "content-type",
-                  "value": "application/json"
-                },
-                {
-                  "key": "date",
-                  "value": "Wed, 05 Aug 2026 22:11:05 GMT"
-                },
-                {
-                  "key": "content-length",
-                  "value": "84"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"error\": \"Submit for Implementation Approval only allowed at Initiated state of CC\"\n}\n\n"
-            }
-          ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": []
+    },
+    {
+      "name": "Workflow",
+      "item": [
         {
           "name": "Cancel CC",
           "request": {
@@ -5933,16 +5538,755 @@
               "body": "{\n  \"error\": \"Cancellation only allowed from Initiated state of CC\"\n}"
             }
           ]
+        },
+        {
+          "name": "Submit For Implementation Approval",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols//submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "",
+                "submit"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Submit For Implementation Approval",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:11:05 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "84"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"3e75faf0-55bf-4b95-b137-ed51d88c82ee\",\n    \"cc_id\": \"CC-002\",\n    \"current_state\": \"Pending Implementation Approval\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"last_updated_by_name\": \"Default CC Owner\",\n    \"created_on\": \"2026-07-30T18:31:14.907992+04:00\",\n    \"last_updated_on\": \"2026-08-06T02:09:28.363964+04:00\",\n    \"change_title\": \"Kiosk receipt printer firmware update\",\n    \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n    \"change_type\": \"Hardware\",\n    \"change_category\": \"Normal\",\n    \"department_function\": \"IT\",\n    \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n    \"proposed_implementation_date\": \"2026-10-15T00:00:00Z\",\n    \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n    \"implementation_window_start\": null,\n    \"implementation_window_end\": null,\n    \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n    \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n    \"expected_downtime\": \"Yes\",\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": \"No\",\n    \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n    \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n    \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n    \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n    \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n    \"rollback_backout_plan\": \"Reflash previous firmware v2.3.8 from the vendor image\",\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n    \"assigned_approver_name\": \"Default Approver\",\n    \"comments_for_approver\": null,\n    \"decision\": null,\n    \"risk_level\": null,\n    \"decision_comments\": null,\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Pending\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "400, missing_fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 21:30:59 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "406"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Change Category\",\n    \"Department / Function\",\n    \"Affected Systems / Modules\",\n    \"Target Closure Date\",\n    \"Reason for Change\",\n    \"Business Impact\",\n    \"Expected Downtime\",\n    \"Requires Training\",\n    \"Risk Rationale\",\n    \"Key Risks & Mitigations\",\n    \"High-Level Implementation Plan\",\n    \"Validation Approach\",\n    \"Success Criteria\",\n    \"Rollback / Backout Plan\",\n    \"Assigned Approver\"\n  ]\n}"
+            },
+            {
+              "name": "Email Blank",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:02:22 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "33"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Email cannot be blank\"\n}"
+            },
+            {
+              "name": "400, \"at least 2 business days\"",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:04:20 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "142"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Proposed Implementation Date must be at least 2 business days from today\"\n  ]\n}"
+            },
+            {
+              "name": "400, \"at least 10 business days\"",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:04:54 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "134"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Target Closure Date must be at least 10 business days from today\"\n  ]\n}"
+            },
+            {
+              "name": "400, both date validations",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:05:24 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "209"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Cannot submit: some requirements are not met\",\n  \"issues\": [\n    \"Proposed Implementation Date must be at least 2 business days from today\",\n    \"Target Closure Date must be at least 10 business days from today\"\n  ]\n}"
+            },
+            {
+              "name": "password blank",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"owner@eaqms.local\",\"password\":\"\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:06:58 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Password cannot be blank\"\n}"
+            },
+            {
+              "name": "Submit CC-002 again",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 05 Aug 2026 22:11:05 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "84"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Submit for Implementation Approval only allowed at Initiated state of CC\"\n}\n\n"
+            }
+          ]
+        },
+        {
+          "name": "Decision for Implementation Approval",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"decision\": \"Approve\",\r\n    \"risk_level\": \"Medium\",\r\n    \"decision_comments\": \"Rollback plan now adequate. Approved to proceed.\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-001/decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-001",
+                "decision"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Reject (T5)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"decision\": \"Reject\",\r\n    \"risk_level\": \"High\",\r\n    \"decision_comments\": \"Rollback plan lacks detail on restoring the vendor image; please expand before resubmitting.\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:34:08 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n    \"cc_id\": \"CC-001\",\n    \"current_state\": \"Initiated\",\n    \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n    \"change_owner_name\": \"Default CC Owner\",\n    \"last_updated_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n    \"last_updated_by_name\": \"Default Approver\",\n    \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n    \"last_updated_on\": \"2026-08-10T15:28:05.329572+04:00\",\n    \"change_title\": \"Kiosk receipt printer firmware update\",\n    \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n    \"change_type\": \"Hardware\",\n    \"change_category\": \"Normal\",\n    \"department_function\": \"IT\",\n    \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n    \"proposed_implementation_date\": \"2026-08-07T00:00:00Z\",\n    \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n    \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n    \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n    \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n    \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n    \"expected_downtime\": \"Yes\",\n    \"requires_testing\": \"Yes - Full testing\",\n    \"requires_training\": \"No\",\n    \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n    \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n    \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n    \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n    \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n    \"rollback_backout_plan\": \"Reflash previous firmware v2.3.8 from the vendor image\",\n    \"actual_implementation_date\": null,\n    \"post_implementation_issues\": null,\n    \"implementation_summary\": null,\n    \"deviations_from_plan\": null,\n    \"validation_performed\": null,\n    \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n    \"assigned_approver_name\": \"Default Approver\",\n    \"comments_for_approver\": null,\n    \"decision\": \"Reject\",\n    \"risk_level\": \"High\",\n    \"decision_comments\": \"Rollback plan lacks detail on restoring the vendor image; please expand before resubmitting.\",\n    \"implementation_approval_by_id\": null,\n    \"implementation_approval_by_name\": null,\n    \"implementation_approval_on\": null,\n    \"final_decision\": null,\n    \"final_comments\": null,\n    \"final_approval_by_id\": null,\n    \"final_approval_by_name\": null,\n    \"final_approval_on\": null,\n    \"implementation_approval_status\": \"Not Submitted\",\n    \"final_approval_status\": \"Not Submitted\",\n    \"actual_closure_date\": null,\n    \"comments\": null,\n    \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "decision, risk, decision comments not blank",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"decision\": \"Reject\",\r\n    \"risk_level\": \"High\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:47:53 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "45"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Decision Comments cannot be blank\"\n}"
+            },
+            {
+              "name": "decision comment > 2000 chars",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"decision\": \"Reject\",\r\n    \"risk_level\": \"High\",\r\n    \"decision_comments\": \"The steady rhythm of rain against the windowpane creates a soothing background melody that fills the entire room. Beyond the glass, the city lights blur into soft streaks of golden yellow and vibrant red, reflecting off the wet pavement below. Inside, a warm mug of tea rests on the wooden table, releasing thin curls of steam into the cool air. The quiet atmosphere provides a welcome pause from the fast pace of daily life, inviting a moment of deep reflection and peace. Every passing minute feels slightly longer, as if time itself has slowed down to appreciate the quiet sanctuary of the evening. Outside, the wind whispers through the towering trees, shaking loose a few late-autumn leaves that drift gracefully toward the ground. Each leaf turns softly in the air before landing gently on the damp earth. The scent of rain-soaked pine and fresh earth drifts through the cracked window, filling the space with a crisp, refreshing fragrance. Somewhere in the distance, a train whistle echoes faintly through the mist, its low sound fading smoothly into the night. It is in these simple, solitary moments that clarity often emerges from the noise of routine. Thought after thought settles into place like pieces of a detailed puzzle finally finding their proper positions. As night deepens, the dark sky settles over the surrounding hills, wrapping the entire landscape in a silent blanket of blue and black shadow. Stars begin to peer through tiny gaps in the scattering clouds, twinkling like distant lanterns across the vast expanse of space. The world outside rests peacefully under their faint light, waiting for the first glow of tomorrow's sunrise. Until then, the stillness remains undisturbed, offering a quiet space to rest, dream, and renew one's spirit for whatever journey lies ahead when morning breaks once more over the horizon. Every new dawn brings another chance to explore, create, and discover the quiet beauty hidden within life's endless possibilities, gently guiding us forward with our hope.\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:49:54 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "62"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Decision Comments must be 2000 characters or fewer\"\n}"
+            },
+            {
+              "name": "401 — valid credentials, wrong person",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"decision\": \"Reject\",\r\n    \"risk_level\": \"High\",\r\n    \"decision_comments\": \"The steady rhythm of rain agai.\",\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:51:46 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "31"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Invalid credentials\"\n}"
+            },
+            {
+              "name": "200 — editable again in Initiated",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"rollback_backout_plan\":\"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\"}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:53:52 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n  \"cc_id\": \"CC-001\",\n  \"current_state\": \"Initiated\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n  \"last_updated_on\": \"2026-08-10T15:53:52.846066+04:00\",\n  \"change_title\": \"Kiosk receipt printer firmware update\",\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"IT\",\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n  \"proposed_implementation_date\": \"2026-08-07T00:00:00Z\",\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n  \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n  \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n  \"expected_downtime\": \"Yes\",\n  \"requires_testing\": \"Yes - Full testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n  \"rollback_backout_plan\": \"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Reject\",\n  \"risk_level\": \"High\",\n  \"decision_comments\": \"Rollback plan lacks detail on restoring the vendor image; please expand before resubmitting.\",\n  \"implementation_approval_by_id\": null,\n  \"implementation_approval_by_name\": null,\n  \"implementation_approval_on\": null,\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Not Submitted\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "200 → Pending Implementation Approval",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:56:34 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n  \"cc_id\": \"CC-001\",\n  \"current_state\": \"Pending Implementation Approval\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n  \"last_updated_on\": \"2026-08-10T15:56:34.750943+04:00\",\n  \"change_title\": \"Kiosk receipt printer firmware update\",\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"IT\",\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n  \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n  \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n  \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n  \"expected_downtime\": \"Yes\",\n  \"requires_testing\": \"Yes - Full testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n  \"rollback_backout_plan\": \"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Reject\",\n  \"risk_level\": \"High\",\n  \"decision_comments\": \"Rollback plan lacks detail on restoring the vendor image; please expand before resubmitting.\",\n  \"implementation_approval_by_id\": null,\n  \"implementation_approval_by_name\": null,\n  \"implementation_approval_on\": null,\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Pending\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "200 In Implementation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"decision\": \"Approve\",\r\n    \"risk_level\": \"Medium\",\r\n    \"decision_comments\": \"Rollback plan now adequate. Approved to proceed.\",\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Mon, 10 Aug 2026 11:57:56 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n  \"cc_id\": \"CC-001\",\n  \"current_state\": \"In Implementation\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"last_updated_by_name\": \"Default Approver\",\n  \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n  \"last_updated_on\": \"2026-08-10T15:57:56.40604+04:00\",\n  \"change_title\": \"Kiosk receipt printer firmware update\",\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"IT\",\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n  \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n  \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n  \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n  \"expected_downtime\": \"Yes\",\n  \"requires_testing\": \"Yes - Full testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n  \"rollback_backout_plan\": \"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Approve\",\n  \"risk_level\": \"Medium\",\n  \"decision_comments\": \"Rollback plan now adequate. Approved to proceed.\",\n  \"implementation_approval_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"implementation_approval_by_name\": \"Default Approver\",\n  \"implementation_approval_on\": \"2026-08-10T15:57:56.407064+04:00\",\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Approved\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
+            }
+          ]
         }
       ]
-    },
-    {
-      "name": "Dashboard",
-      "item": []
-    },
-    {
-      "name": "Workflow",
-      "item": []
     },
     {
       "name": "Files",
