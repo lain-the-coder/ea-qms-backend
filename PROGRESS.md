@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 23 — **T4/T5 decision** · **16 of 22 · three transitions written inline**
-- **Next task:** checkpoint 24 — **extract the shared helpers** (§0's threshold reached), then files (20–21)
+- **Last checkpoint:** 24 — **file upload** · **17 of 22**
+- **Next task:** checkpoint 25 — **file download** (endpoint 21), then the CC-response join
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -27,7 +27,8 @@ guardrail docs carry the substance and are always attached.
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                        |
 | API — Group 3 CCs (10–13)           | ✅ Complete                                        |
 | API — Group 5 Workflow (15–19)      | 🔵 **3 / 5** — T2 ✅, T3 ✅, T4/T5 ✅ (all inline) |
-| API — Groups 4, 6, 7 (14, 20–22)    | ⬜ Dashboard, files, signatures                    |
+| API — Group 6 Files (20–21)         | 🔵 **1 / 2** — upload ✅                           |
+| API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                           |
 
 ---
 
@@ -1185,32 +1186,98 @@ loaded record rather than defaulted to nil.
 
 ---
 
+### ✅ Checkpoint 24 — **file upload** · `POST /api/changecontrols/{ccID}/files/{fieldName}` (endpoint 20 of 22)
+
+**CC Owner only, `In Implementation` only, `implementation_evidence` only.** First multipart
+endpoint in the project — genuinely new territory rather than a variation.
+
+**Helper extraction deliberately deferred** (decision #39): T2, T3 and T4/T5 are three copies
+of the signature block, and §0's threshold is reached — but only T6 and T7/T8 remain, so it
+goes from three copies to five rather than three to thirty. Bounded, and finishing the
+endpoints has more value. **Next release.**
+
+**`UpsertFileAttachment`** — `INSERT … ON CONFLICT (change_control_id, field_name) DO UPDATE`.
+This is how BR-8.2.15's _"single file per field, replace on re-upload"_ becomes **one atomic
+statement** rather than a SELECT-then-branch (which would be the same TOCTOU shape avoided for
+email uniqueness at checkpoint 12). `EXCLUDED` refers to the row that was _attempted_.
+
+**The constraint turns out to be load-bearing, not protective.** Checkpoint 3 recorded
+`uq_file_attachments_cc_field` as _"the unique constraint makes duplicates impossible"_ — read
+then as a safety net like `uq_users_email`. But Postgres can only detect the conflict via that
+unique index: remove it and the statement doesn't lose a check, it **fails to run**. Same
+declaration, different role — one catches a mistake, the other enables a feature.
+
+**`uploaded_on = NOW()` explicitly on the update path**, because the column `DEFAULT` only
+fires on `INSERT` — without it a replacement would keep the original upload time.
+
+**The handler:**
+
+- **`MaxBytesReader` before `ParseMultipartForm`**, so the limit is in place while reading
+  rather than after the whole body has arrived. **Two distinct limits:** `MaxBytesReader` caps
+  the _request_ (10 MB + 1 MB multipart overhead); `ParseMultipartForm` caps what stays in
+  _RAM_ at 1 MB, so larger files spill to a temp file
+- `defer r.MultipartForm.RemoveAll()` **after** the parse error check — `r.MultipartForm` is
+  nil when parsing failed
+- **PDF only, enforced by `http.DetectContentType` on the actual bytes.** The extension is
+  checked first for a clearer message before reading, but the sniff is what enforces it: a
+  renamed PNG passes the extension check and dies on the magic bytes
+- **`sanitizeFilename` extracted as a testable function** — not for repetition but for
+  **testability**, since the alternative was uploading awkwardly-named files by hand. Normalises
+  Windows backslashes so `filepath.Base` strips them on Linux, drops control characters, quotes,
+  backticks and semicolons (the name lands in a `Content-Disposition` header), falls back to
+  `evidence.pdf` for empty **or `"."`** input (`filepath.Base("")` returns `"."`), and caps at
+  255 **runes** preserving the extension
+- **The file is read and validated BEFORE the transaction opens**, so a row lock is never held
+  across a slow network read. The trade-off: a non-owner's 10 MB upload is fully processed
+  before the 403 — cheaper than holding a lock for seconds
+- One transaction: `GetChangeControlForUpdate` (locks) → gates → upsert → `TouchChangeControl`
+  → commit
+- **200, not 201** — the upsert may have replaced rather than created, and the endpoint cannot
+  tell which
+
+| Check                                                                                         | Verified |
+| --------------------------------------------------------------------------------------------- | -------- |
+| Upload → 200; `file_size` equals `octet_length(file_data)` exactly                            | ✅       |
+| Re-upload → **one row**, new name, new size, newer `uploaded_on`                              | ✅       |
+| `last_updated_on` matches `uploaded_on` byte-for-byte — both writes in one transaction        | ✅       |
+| `.docx` and `.png` → 400 · **PNG renamed to `.pdf` → 400 on the magic bytes**                 | ✅       |
+| >11 MB → `MaxBytesReader` · **10.5 MB → `header.Size`** — the two limits are distinct         | ✅       |
+| Missing part, wrong part name, JSON body → 400 each                                           | ✅       |
+| **`supporting_documents` → 400** although the CHECK constraint permits it                     | ✅       |
+| Admin → 403 · **Approver → 403** · `Initiated`/`Cancelled` → 409 · no token → 401             | ✅       |
+| **Every gate test left `file_attachments` at exactly one row**                                | ✅       |
+| `sanitize_test.go` — 5 cases: quotes/semicolons, path traversal, 255-rune cap, both fallbacks | ✅       |
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 24 — **extract the shared helpers**, then files
+### ⬜ Checkpoint 25 — **file download** (endpoint 21), then the CC-response join
 
-**§0's threshold is reached.** Three transitions are now written fully inline, so the
-repetition is _observed_ rather than predicted — and it is substantial:
+**`GET /api/changecontrols/{ccID}/files/{fieldName}`** — small. One query, three headers, raw
+bytes.
 
-| Candidate                  | Duplication                                                                                                                   |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **the signature block**    | **verbatim in T2, T3 and T4/T5** — email `EqualFold`, argon2id, and both `SignatureFailed` writes via `cfg.db`. ~35 lines × 3 |
-| **the gates**              | path param → decode → `BeginTx` → `GetChangeControlForUpdate` → 404 → ownership → state → 409                                 |
-| **audit row construction** | `entityChangeControl`, `cc.ID`, `performed_by_*`, `now` repeat on every one of the ten rows written so far                    |
-| **the tail**               | re-fetch → commit → success log → notification stub → respond                                                                 |
+- **Any authenticated role, any state** (§2.2: the Approver _"reviews implementation evidence"_
+  at the final gate; Viewer and Admin can view throughout). No ownership check, no state check
+- `GetFileAttachment` — **the only query that selects `file_data`**
+- `Content-Disposition: attachment; filename="…"` — where the sanitised filename finally
+  earns its keep
+- `w.Write(bytes)` rather than `respondWithJSON`, and **every header must be set before the
+  first write** — once the body starts, a later `Set` silently does nothing
 
-`verifySignature` is the obvious first extraction — it is the largest block and the most
-error-prone, since a `qtx` slipping in where `cfg.db` belongs would silently discard the
-failed-attempt record.
+**Then the CC-response join** (deferred from decision #38), in three places:
 
-**Take care with what it returns.** The block writes an audit row _and_ responds _and_ returns;
-a helper cannot do all three cleanly. Likely shape: it performs the checks and the audit write,
-and returns a bool or error for the caller to act on — keeping `respondWithError` at the call
-site so the handler still owns its responses.
+1. `GetChangeControlByCcID` gains a `LEFT JOIN file_attachments … AND field_name =
+'implementation_evidence'`, selecting **four columns only — never `file_data`**, since this
+   query runs on every CC read, every save and every transition
+2. `ChangeControlResponse` gains `ImplementationEvidence *FileRef` — nil when no file
+3. `toChangeControlResponse` maps it
 
-**Then, in build order: files (20, 21) → T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
-Files come before T6 because T6 must verify an evidence file exists, which cannot be tested
-until upload works.
+One place each, and every endpoint returning a CC picks it up automatically. **Then a
+regression pass** — at least one call per existing endpoint, since the shared query and mapper
+change.
+
+**After that: T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
 
 ---
 
@@ -1268,6 +1335,7 @@ Session decisions that now contradict a guardrail doc. Until amended, a future s
 | BRD **BR-8.4.11** scope note  | Remove _"the name change can still be saved"_ — a blocked role change now saves **nothing** (decision #22)                                                                                                                                                                                                                                                                                                          |
 | DB Design **§8.2** scope note | Remove _"a name change on the same request must still succeed... the handler applies the name update regardless"_ — same override (decision #22)                                                                                                                                                                                                                                                                    |
 | `CONTEXT_HANDOFF.md`          | §3 mentions the _30-minute_ sliding inactivity window → 2 hours                                                                                                                                                                                                                                                                                                                                                     |
+| BRD **BR-8.2.13**             | Narrow the accepted file types from PDF/DOCX/XLSX/PNG/JPG to **PDF only** (decision #35), and remove **Supporting Documents** (field 24) from release 1 — the endpoint accepts `implementation_evidence` alone                                                                                                                                                                                                      |
 | BRD **SC-6**                  | Remove or reword _"Target Closure Date is locked after initial submission"_ — it contradicts field reference #14, and the implementation follows the field reference (flag #23)                                                                                                                                                                                                                                     |
 | BRD                           | Add that **deactivation is blocked while a user has active CC records** (decision #19), mirroring the existing role-change restriction in §2.2 / US-AD-03; add the **password policy** (decision #17 — 8 chars, 1 upper/lower/digit/special); add the frontend refresh-timer requirement (flag #12); check for any session-timeout statement; §13.1 deferral note for the three descoped password flows (flag #5)   |
 | DB Design doc                 | `change_controls` column count 48 → **50** (flag #1); DEFAULT count 8 → **7** (flag #2)                                                                                                                                                                                                                                                                                                                             |
@@ -1314,6 +1382,11 @@ Settled in working sessions and binding. They exist nowhere else.
 | 32  | **The response re-fetch happens INSIDE the transaction, before the commit** — supersedes the second half of #29                                                                                                                                                                                            | Reading after the commit leaves a window where the write succeeded but the client sees a 500. For Save Draft that was tolerable (a retry is a harmless no-op); **for a transition it is not** — the retry hits a **409**, because the state has already moved, so the user is told "something went wrong" and then "this isn't in Initiated state." Reading before the commit means any failure leaves nothing written: **the error and the record's state agree.** A transaction reads its own uncommitted writes, so the joined read still returns post-update values. Applied to Save Draft as well                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 33  | **Save Draft rejects request keys that are not editable in the current state, rather than silently ignoring them**                                                                                                                                                                                         | Decoding into a map means unknown keys are simply never looked up — safe, and the conventional behaviour for JSON APIs, but it produced a **200 for a request that wrote nothing**. In a regulated system "the API said OK and did nothing" is worse than a 400. Applied **only to Save Draft**: it has 24 known keys out of 50 possible CC columns, so a client can plausibly believe `decision` or `actual_implementation_date` applied. The 2–4 field bodies elsewhere (login, transitions) are not confusable, so `DisallowUnknownFields` was deliberately **not** added to them — strictness there would buy nothing and break on a harmless extra field. Cost: `draftEditableFields` must stay in sync with the 24 blocks; drift fails loudly (a valid field gets rejected), which is the safe direction                                                                                                                                                                                                                                                          |
 | 34  | **On rejection (T5), `implementation_approval_status` returns to `Not Submitted`**                                                                                                                                                                                                                         | No guardrail doc states what it becomes. The record is a draft again and must be resubmitted through T2, so `Not Submitted` mirrors a fresh draft exactly; leaving it `Pending` would misrepresent the record as still awaiting a decision when nobody is looking at it. Note the _decision fields themselves_ are **not** cleared — `decision`, `risk_level` and `decision_comments` keep the rejection values until a re-review overwrites them (§3.5.1), so the CC Owner can see why it came back                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 35  | **PDF only, and `supporting_documents` is deferred entirely**                                                                                                                                                                                                                                              | **Narrows BR-8.2.13**, which lists PDF, DOCX, XLSX, PNG and JPG. Deliberate: evidence should be a **fixed artefact**, not something anyone can open and edit. It also removes the weakest part of the validation — `http.DetectContentType` returns `application/zip` for both DOCX and XLSX, so those could only be told apart by trusting the extension. With one accepted type the sniff **cannot be fooled**. `content_type` is stored as the constant and the column is kept, so re-adding types needs no migration. **`supporting_documents` (field 24) is not built** — and the **Go whitelist is the only gate**, since `ck_file_attachments_field_name` still permits it. Re-adding it later is four small changes and no migration. **Both need the BRD amending**                                                                                                                                                                                                                                                                                            |
+| 36  | **Upload validation: two size limits, sniff over declaration, and stored values over claimed ones**                                                                                                                                                                                                        | _Two limits_ — `MaxBytesReader` caps the request body (10 MB + 1 MB multipart overhead) and is the hard stop against a lying client; `header.Size` gives a clear early rejection in the 10–11 MB band; both were verified to fire independently. _Sniff_ — the client's `Content-Type` is trivially forged, so `http.DetectContentType` reads the magic bytes; the extension check runs first only for a better message. _Stored over claimed_ — `file_size` is `len(data)` and `content_type` is the constant, never the client's values. _Filename_ — `header.Filename` is untrusted input that lands in a `Content-Disposition` header, so it is sanitised: path stripped, control characters and quote/backtick/semicolon dropped, capped at 255 **runes**                                                                                                                                                                                                                                                                                                          |
+| 37  | **File uploads write no audit rows**                                                                                                                                                                                                                                                                       | §6.6.2 does not list them, and FR-6.6.6 excludes non-critical field changes. More decisively: **an audit row could not preserve the replaced file** — the upsert overwrites the bytes, so a row reading `evidence-v1.pdf → evidence-v2.pdf` would advertise a gap rather than close one, claiming a document existed while being unable to produce it. Preserving history would need a versioned table, which nothing asks for. Replacing an attachment is the same category of act as editing `implementation_summary` twice, which is also unaudited                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 38  | **Upload runs in a transaction with `GetChangeControlForUpdate`, and bumps `last_updated_*`**                                                                                                                                                                                                              | Two writes across two tables (the attachment and the CC touch) must land together, so a transaction is required regardless. The **lock** then closes a narrow race: the same user uploading in one tab while submitting for final approval in another could otherwise attach evidence to a record that had already moved to `Pending Final Approval` — the Approver would review a file the owner never signed for. The `last_updated_*` bump keeps evidence consistent with the other five fields editable in that state, which bump it via Save Draft. **The file is read and validated _before_ the transaction opens**, so a database lock is never held across a slow network read                                                                                                                                                                                                                                                                                                                                                                                 |
+| 39  | **Helper extraction deferred to a later release**                                                                                                                                                                                                                                                          | §0's threshold _is_ reached — the signature block is verbatim across T2, T3 and T4/T5. But only T6 and T7/T8 remain, so deferring takes it from three copies to **five, not thirty**. Bounded, and finishing the endpoints has more value now. **The accepted risk:** two more copy-pastes are two more chances for a `cfg.db`/`qtx` slip, which is silent and would discard a failed-signature record. Named so the choice is deliberate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ---
 
@@ -1339,6 +1412,7 @@ into the UI build / handover rather than being buried in the flags table.
 | F13 | **Validate required fields client-side _before_ opening the signature modal.** FR-6.2.34 puts the signature last for a reason: nobody should type their password only to be told a field is empty. The backend enforces the same order, so this is UX, not security                                                                                                                                                                                                                                                                                                                                                                                     | checkpoint 21                                      |
 | F14 | **The signature modal's "Username" field is the user's EMAIL.** `users` has no username column; the API compares against `user.Email` (case-insensitively). Relabel the field                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | checkpoint 21                                      |
 | F15 | **The retry loop is: fix → save → submit.** A failed submit leaves the record completely untouched — no state change, no signature — so retrying is safe. The only trace is a `SignatureFailed` audit row, and only when the failure was a _credential_ one; a validation failure writes nothing                                                                                                                                                                                                                                                                                                                                                        | checkpoint 21                                      |
+| F16 | **Evidence upload is `multipart/form-data`, not JSON, and the file part must be named `file`.** `POST /api/changecontrols/{ccID}/files/implementation_evidence` with a single part keyed `file`. **Do not set `Content-Type` manually** — the browser generates it with the boundary string, and overriding it breaks parsing. **PDF only, 10 MB max** (decision #35). The bearer token is still required, as everywhere else                                                                                                                                                                                                                           | checkpoint 24                                      |
 
 ---
 
