@@ -6290,7 +6290,490 @@
     },
     {
       "name": "Files",
-      "item": []
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [
+                    "/C:/Users/ahmed/Desktop/Small pdf this is.pdf"
+                  ]
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-001",
+                "files",
+                "implementation_evidence"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 with file_name, file_size, content_type: \"application/pdf\", uploaded_on",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/Small pdf this is.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:47:17 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "137"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"file_name\": \"Small pdf this is.pdf\",\n  \"file_size\": 15885,\n  \"content_type\": \"application/pdf\",\n  \"uploaded_on\": \"2026-08-11T21:47:17.058124+04:00\"\n}"
+            },
+            {
+              "name": "upsert",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/updated_pdf_here.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:52:03 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "136"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"file_name\": \"updated_pdf_here.pdf\",\n  \"file_size\": 15523,\n  \"content_type\": \"application/pdf\",\n  \"uploaded_on\": \"2026-08-11T21:52:03.879308+04:00\"\n}"
+            },
+            {
+              "name": "only pdf files are allowed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Downloads/CV Template.docx"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:53:24 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "39"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Only PDF files are accepted\"\n}"
+            },
+            {
+              "name": "A PDF over 11 MB",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/EA/Books/1986 The Adventures of Ibn Battuta--Muslim traveler of the 14th Century by Dunn s.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "connection",
+                  "value": "close"
+                },
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:57:23 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "54"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"File exceeds maximum allowed size of 10 MB\"\n}"
+            },
+            {
+              "name": "400 \"Missing file payload\"",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:58:21 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "43"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Missing file payload in request\"\n}"
+            },
+            {
+              "name": "Send JSON instead of multipart",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 17:59:56 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "42"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Invalid multipart form payload\"\n}"
+            },
+            {
+              "name": "Rename a .png to .pdf and upload",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/test_image.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 18:05:08 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "39"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Only PDF files are accepted\"\n}"
+            },
+            {
+              "name": "only accepted file upload field is implemntation_evidence",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/updated_pdf_here.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/supporting_documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "supporting_documents"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 18:20:53 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "70"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Field name in path parameter is not one of accepted values\"\n}"
+            },
+            {
+              "name": "ownership check",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": [
+                        "/C:/Users/ahmed/Desktop/updated_pdf_here.pdf"
+                      ]
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Tue, 11 Aug 2026 18:22:11 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "21"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Forbidden\"\n}"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "Signatures",
