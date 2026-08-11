@@ -781,6 +781,23 @@ func (q *Queries) SubmitForImplApproval(ctx context.Context, arg SubmitForImplAp
 	return i, err
 }
 
+const touchChangeControl = `-- name: TouchChangeControl :exec
+UPDATE change_controls
+SET last_updated_by_id = $2,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+`
+
+type TouchChangeControlParams struct {
+	CcID            string
+	LastUpdatedByID uuid.UUID
+}
+
+func (q *Queries) TouchChangeControl(ctx context.Context, arg TouchChangeControlParams) error {
+	_, err := q.db.ExecContext(ctx, touchChangeControl, arg.CcID, arg.LastUpdatedByID)
+	return err
+}
+
 const updateChangeControlDraft = `-- name: UpdateChangeControlDraft :one
 UPDATE change_controls
 SET

@@ -138,3 +138,15 @@ const (
 	notifyCCApproved           = "cc_approved"            // T4 → owner
 	notifyCCRejected           = "cc_rejected"            // T5 → owner
 )
+
+// File upload — BR-8.2.14 (10 MB), BR-8.2.13 narrowed to PDF only
+const (
+	maxUploadBytes     = 10 << 20 // 10 MB
+	maxMultipartMemory = 1 << 20  // 1 MB stays in RAM; larger spills to a temp file
+	contentTypePDF     = "application/pdf"
+)
+
+// File attachment field names — ck_file_attachments_field_name.
+// 'supporting_documents' is deliberately NOT accepted in release 1. The CHECK
+// constraint still permits it, so THIS whitelist is the only thing enforcing that.
+const fieldImplementationEvidence = "implementation_evidence"

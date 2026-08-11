@@ -114,6 +114,10 @@ func main() {
 	mux.Handle("POST /api/changecontrols/{ccID}/decision",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerImplementationDecision)))
 
+	// file attachment routes
+	mux.Handle("POST /api/changecontrols/{ccID}/files/{fieldName}",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerUploadFile)))
+
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: mux,

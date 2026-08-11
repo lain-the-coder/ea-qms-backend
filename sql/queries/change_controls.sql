@@ -196,3 +196,9 @@ SET current_state = $2,
     last_updated_on = NOW()
 WHERE cc_id = $1
 RETURNING *;
+
+-- name: TouchChangeControl :exec
+UPDATE change_controls
+SET last_updated_by_id = $2,
+    last_updated_on = NOW()
+WHERE cc_id = $1;
