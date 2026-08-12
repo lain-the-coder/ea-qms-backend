@@ -18,3 +18,8 @@ SET file_name      = EXCLUDED.file_name,
     uploaded_on    = NOW()
 RETURNING id, change_control_id, field_name, file_name, file_size,
           content_type, uploaded_by_id, uploaded_on;
+
+-- name: GetFileAttachment :one
+SELECT file_name, file_data, content_type, file_size
+FROM file_attachments
+WHERE change_control_id = $1 AND field_name = $2;

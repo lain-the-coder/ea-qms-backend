@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -188,4 +189,65 @@ func (cfg *apiConfig) HandlerUploadFile(w http.ResponseWriter, r *http.Request, 
 		ContentType: fileAttachmentRow.ContentType,
 		UploadedOn:  fileAttachmentRow.UploadedOn,
 	})
+}
+
+func (cfg *apiConfig) HandlerDownloadFile(w http.ResponseWriter, r *http.Request, user database.User) {
+	log := logging.LoggerFrom(r.Context())
+	// extract and validate path parameters
+	ccIDRawStr := r.PathValue("ccID")
+	fieldName := r.PathValue("fieldName")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("file download failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	if fieldName != fieldImplementationEvidence {
+		log.Warn("file download failed", "reason", "field name is not implementation_evidence in url path")
+		respondWithError(w, "Field name in path parameter is not one of accepted values", http.StatusBadRequest)
+		return
+	}
+	// no qtx since both read only operations, atomicity unnecessary
+	id, err := cfg.db.GetChangeControlIDByCcID(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("file download failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("file download failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	row, err := cfg.db.GetFileAttachment(r.Context(), database.GetFileAttachmentParams{
+		ChangeControlID: id,
+		FieldName:       fieldImplementationEvidence,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("file download failed", "reason", "no file uploaded for this field", "cc_id", ccID)
+			respondWithError(w, "File not found for Implementation Evidence field", http.StatusNotFound)
+			return
+		}
+		log.Error("file download failed", "reason", "file attachment lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// cannot use RespondWithJson function since here we're writing application/pdf
+	// 3 header writes
+	w.Header().Set("Content-Type", row.ContentType)
+	// download rather than display and filename as set
+	w.Header().Set("Content-Disposition", `attachment; filename="`+row.FileName+`"`)
+	// lets the browser show a progress bar and detect a truncated transfer
+	w.Header().Set("Content-Length", strconv.FormatInt(row.FileSize, 10))
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(row.FileData); err != nil {
+		// headers and 200 OK have already gone out — the status cannot be changed.
+		// The browser detects the truncation via Content-Length and surfaces it.
+		log.Error("file download failed", "reason", "write to client failed",
+			"cc_id", ccID, "error", err)
+		return
+	}
+	log.Info("file downloaded", "cc_id", ccID, "field_name", fieldName,
+		"file_name", row.FileName, "file_size", row.FileSize)
 }

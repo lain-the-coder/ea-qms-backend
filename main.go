@@ -117,6 +117,8 @@ func main() {
 	// file attachment routes
 	mux.Handle("POST /api/changecontrols/{ccID}/files/{fieldName}",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerUploadFile)))
+	mux.Handle("GET /api/changecontrols/{ccID}/files/{fieldName}",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerDownloadFile)))
 
 	server := &http.Server{
 		Addr:    ":1304",

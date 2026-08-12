@@ -12,6 +12,36 @@ import (
 	"github.com/google/uuid"
 )
 
+const getFileAttachment = `-- name: GetFileAttachment :one
+SELECT file_name, file_data, content_type, file_size
+FROM file_attachments
+WHERE change_control_id = $1 AND field_name = $2
+`
+
+type GetFileAttachmentParams struct {
+	ChangeControlID uuid.UUID
+	FieldName       string
+}
+
+type GetFileAttachmentRow struct {
+	FileName    string
+	FileData    []byte
+	ContentType string
+	FileSize    int64
+}
+
+func (q *Queries) GetFileAttachment(ctx context.Context, arg GetFileAttachmentParams) (GetFileAttachmentRow, error) {
+	row := q.db.QueryRowContext(ctx, getFileAttachment, arg.ChangeControlID, arg.FieldName)
+	var i GetFileAttachmentRow
+	err := row.Scan(
+		&i.FileName,
+		&i.FileData,
+		&i.ContentType,
+		&i.FileSize,
+	)
+	return i, err
+}
+
 const upsertFileAttachment = `-- name: UpsertFileAttachment :one
 INSERT INTO file_attachments (
     change_control_id,

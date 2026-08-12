@@ -471,6 +471,18 @@ func (q *Queries) GetChangeControlForUpdate(ctx context.Context, ccID string) (C
 	return i, err
 }
 
+const getChangeControlIDByCcID = `-- name: GetChangeControlIDByCcID :one
+SELECT id FROM change_controls
+WHERE cc_id = $1
+`
+
+func (q *Queries) GetChangeControlIDByCcID(ctx context.Context, ccID string) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getChangeControlIDByCcID, ccID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listActiveCCIDsForUser = `-- name: ListActiveCCIDsForUser :many
 SELECT cc_id FROM change_controls
 WHERE (change_owner_id = $1 OR assigned_approver_id = $1)

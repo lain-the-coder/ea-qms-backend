@@ -202,3 +202,7 @@ UPDATE change_controls
 SET last_updated_by_id = $2,
     last_updated_on = NOW()
 WHERE cc_id = $1;
+
+-- name: GetChangeControlIDByCcID :one
+SELECT id FROM change_controls
+WHERE cc_id = $1;
