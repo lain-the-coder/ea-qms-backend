@@ -40,7 +40,7 @@ type ChangeControlResponse struct {
 	ImplementationWindowStart  *time.Time `json:"implementation_window_start"`
 	ImplementationWindowEnd    *time.Time `json:"implementation_window_end"`
 
-	// Impact & Risk (BRD 17–23; 24 supporting_documents is a file attachment)
+	// Impact & Risk (BRD 17–23)
 	ReasonForChange     *string `json:"reason_for_change"`
 	BusinessImpact      *string `json:"business_impact"`
 	ExpectedDowntime    *string `json:"expected_downtime"`
@@ -55,12 +55,13 @@ type ChangeControlResponse struct {
 	SuccessCriteria             *string `json:"success_criteria"`
 	RollbackBackoutPlan         *string `json:"rollback_backout_plan"`
 
-	// Implementation Details (BRD 29–33; 34 implementation_evidence is a file)
+	// Implementation Details (BRD 29–34)
 	ActualImplementationDate *time.Time `json:"actual_implementation_date"`
 	PostImplementationIssues *string    `json:"post_implementation_issues"`
 	ImplementationSummary    *string    `json:"implementation_summary"`
 	DeviationsFromPlan       *string    `json:"deviations_from_plan"`
 	ValidationPerformed      *string    `json:"validation_performed"`
+	ImplementationEvidence   *FileRef   `json:"implementation_evidence"`
 
 	// Approvals — Initiation (BRD 35–36)
 	AssignedApproverID   *uuid.UUID `json:"assigned_approver_id"`
@@ -92,6 +93,15 @@ type ChangeControlResponse struct {
 	CancellationReason *string `json:"cancellation_reason"`
 }
 
+// FileRef is the metadata for an attached file. The bytes are never included —
+// they are served only by GET /{ccID}/files/{fieldName}.
+type FileRef struct {
+	FileName    string    `json:"file_name"`
+	FileSize    int64     `json:"file_size"`
+	ContentType string    `json:"content_type"`
+	UploadedOn  time.Time `json:"uploaded_on"`
+}
+
 // The 24 fields editable in the Initiated state. Any other key in a Save Draft
 // body is rejected rather than silently ignored, so a client cannot believe a
 // write applied when it did not. Must stay in sync with the field blocks below.
@@ -111,6 +121,18 @@ var draftEditableFields = map[string]struct{}{
 // Used by both GET /{ccID} and PUT /{ccID}, which return identical bodies.
 func toChangeControlResponse(row database.GetChangeControlByCcIDRow) ChangeControlResponse {
 	cc := row.ChangeControl
+	// keyed on the file name: all four columns come from the same LEFT JOIN row,
+	// so either all are present or none are
+	var evidence *FileRef
+	if row.EvidenceFileName != nil && row.EvidenceFileSize != nil &&
+		row.EvidenceContentType != nil && row.EvidenceUploadedOn != nil {
+		evidence = &FileRef{
+			FileName:    *row.EvidenceFileName,
+			FileSize:    *row.EvidenceFileSize,
+			ContentType: *row.EvidenceContentType,
+			UploadedOn:  *row.EvidenceUploadedOn,
+		}
+	}
 	return ChangeControlResponse{
 		// Identification (BRD 1–6)
 		ID:                cc.ID,
@@ -152,12 +174,13 @@ func toChangeControlResponse(row database.GetChangeControlByCcIDRow) ChangeContr
 		SuccessCriteria:             cc.SuccessCriteria,
 		RollbackBackoutPlan:         cc.RollbackBackoutPlan,
 
-		// Implementation Details (BRD 29–33)
+		// Implementation Details (BRD 29–34)
 		ActualImplementationDate: cc.ActualImplementationDate,
 		PostImplementationIssues: cc.PostImplementationIssues,
 		ImplementationSummary:    cc.ImplementationSummary,
 		DeviationsFromPlan:       cc.DeviationsFromPlan,
 		ValidationPerformed:      cc.ValidationPerformed,
+		ImplementationEvidence:   evidence,
 
 		// Approvals: Initiation (BRD 35–36)
 		AssignedApproverID:   cc.AssignedApproverID,

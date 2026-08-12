@@ -54,3 +54,10 @@ sql:
             go_type:
               type: "bool"
               pointer: true
+
+          # Nullable BIGINT -> *int64
+          - db_type: "pg_catalog.int8"
+            nullable: true
+            go_type:
+              type: "int64"
+              pointer: true
