@@ -6772,6 +6772,103 @@
               "body": "{\n  \"error\": \"Forbidden\"\n}"
             }
           ]
+        },
+        {
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-001",
+                "files",
+                "implementation_evidence"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "404 \"Change Control not found\"",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-999/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-999",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 11:35:08 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "36"
+                }
+              ],
+              "cookie": [],
+              "body": "{\"error\":\"Change Control not found\"}{\"error\":\"Change Control not found\"}{\"error\":\"Change Control not found\"}{\"error\":\"Change Control not found\"}"
+            },
+            {
+              "name": "404 \"File not found…\" ← the distinction",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-002/files/implementation_evidence",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-002",
+                    "files",
+                    "implementation_evidence"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 11:35:28 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "60"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"File not found for Implementation Evidence field\"\n}"
+            }
+          ]
         }
       ]
     },
