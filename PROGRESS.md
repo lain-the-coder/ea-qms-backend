@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 25 — **file download** · **18 of 22 · Group 6 COMPLETE**
-- **Next task:** the **CC-response join** (evidence metadata) + regression pass, then T6
+- **Last checkpoint:** 26 — **evidence metadata on the CC response** · **18 of 22** (no new endpoint)
+- **Next task:** checkpoint 27 — **T6 submit-final** (endpoint 18)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -1298,30 +1298,95 @@ base64 and inflated the payload by a third.
 
 ---
 
+### ✅ Checkpoint 26 — **evidence metadata on the CC response** (no new endpoint)
+
+Upload and download worked, but **nothing told a client a file existed**. The form would
+render an empty upload box over an attached file, the Approver would have nothing to click at
+the final gate, and T6 would reject a submission with no way to see whether the evidence was
+already there. Deferred at decision #38; done here.
+
+**The pattern for any future addition to the CC response — three edits, in this order:**
+
+| #   | Edit                                     | Verify before moving on                                               |
+| --- | ---------------------------------------- | --------------------------------------------------------------------- |
+| 1   | extend `GetChangeControlByCcID`          | **run it in psql first** — sqlc will not catch a bad column reference |
+| 2   | add the field to `ChangeControlResponse` | —                                                                     |
+| 3   | map it in `toChangeControlResponse`      | `go build ./...`                                                      |
+
+**Nothing else changes.** `GET /{ccID}`, Save Draft and all four transitions route through that
+one query and that one mapper, so they inherit the field without being edited. That is what
+the single-funnel query and the shared mapper bought — a nested object added to a 55-field
+response across six endpoints, for three lines of SQL, one struct field and one mapper block.
+
+**The join, and two ways to get it wrong:**
+
+```sql
+LEFT JOIN file_attachments ev ON ev.change_control_id = cc.id
+                             AND ev.field_name = 'implementation_evidence'
+```
+
+- **`LEFT`, not inner** — most CCs have no evidence, and an inner join returns **zero rows**
+  for every record in `Initiated`, breaking Save Draft's re-fetch entirely
+- **The `field_name` condition belongs in `ON`, not `WHERE`** — in a `WHERE` it filters out
+  rows where the join found nothing, silently turning the LEFT join back into an inner one
+- **Never `ev.file_data`** — this query runs on every CC read, every save and every transition
+
+**Seventh sqlc override: `pg_catalog.int8` → `*int64`.** `EvidenceFileSize` came back as
+`sql.NullInt64` because no nullable `BIGINT` existed until a LEFT JOIN created one — the same
+gap as nullable `bool` at checkpoint 13. The settled list: `text`, `timestamptz`, `date`,
+`uuid` bare; **`time`, `bool`, `int8` prefixed**.
+
+**`FileRef` holds plain types, not pointers** — if the ref exists at all, all four columns are
+populated, since they come from one row that either matched or did not. Nullability lives on
+the outer `*FileRef`. **The mapper still guards all four pointers before dereferencing**: the
+columns are `NOT NULL` in the table so a partial row should be impossible, but relying on that
+would turn one bad assumption into a panic.
+
+| Regression pass                                                                                                                        | Verified |
+| -------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **A** — CC-001 populated; CC-002/003 `null` **with the rest of the record intact**                                                     | ✅       |
+| **B** — a full lifecycle on one new record: create → draft → submit → **reject** → resubmit → **approve** → upload, every response 200 | ✅       |
+| **B, the critical case** — Save Draft on a CC with **no** evidence returns 200 with `null`, not 500 from a failed re-fetch             | ✅       |
+| Upload's `last_updated_on` equals `uploaded_on` exactly — decision #38 on a second record                                              | ✅       |
+| After rejection `last_updated_by_name` is the **Approver** while the owner is unchanged — decision #29's reasoning, observed           | ✅       |
+| **C** — six CCs across four states; `?state=` and `?search=` discriminating across a realistic dataset for the first time              | ✅       |
+| Both files download with `Content-Length` matching the metadata in the CC response                                                     | ✅       |
+
+---
+
 ## Next
 
-### ⬜ Next — the **CC-response join** (evidence metadata), then T6
+### ⬜ Checkpoint 27 — **T6 submit-final** (endpoint 18)
 
-**Not a new endpoint** — three edits so every CC response carries the evidence metadata
-(deferred at decision #38). Without it the form cannot show that a file exists, the Approver
-has nothing to click, and T6 would reject a submission with no way to see whether the file was
-already uploaded.
+`POST /api/changecontrols/{ccID}/submit-final` — **`In Implementation` → `Pending Final
+Approval`**. Owner-only, `In Implementation` only.
 
-1. **`GetChangeControlByCcID`** gains
-   `LEFT JOIN file_attachments ev ON ev.change_control_id = cc.id AND ev.field_name =
-'implementation_evidence'`, selecting **four columns only — never `file_data`**, since this
-   query runs on every CC read, every save and every transition
-2. **`ChangeControlResponse`** gains `ImplementationEvidence *FileRef` — nil when no file
-3. **`toChangeControlResponse`** maps it
+**The only transition that carries field values in its body** (flag #18). T2 submits what Save
+Draft already stored; T6 must **write** the five implementation-detail fields _and_ validate
+_and_ sign _and_ transition — because no save endpoint exists for that state.
 
-One place each, and every endpoint returning a CC picks it up automatically — GET, Save Draft
-and all four transitions route through the same query and mapper.
+|                   |                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| Body              | the 5 fields (29–33) + `{email, password}`                                             |
+| Presence          | all 5 mandatory, **collect-all**                                                       |
+| **Evidence file** | **must exist or submission is blocked** (field 34) — the reason files were built first |
+| Writes            | state + `final_approval_status` → ? + the five fields                                  |
+| Signature         | `T6` / `Submitted for Final Approval` (no hyphen)                                      |
+| Notification      | the **assigned approver** (N4)                                                         |
 
-**Then a regression pass** — at least one call per existing endpoint, since the shared query
-and mapper both change. CC-001 has evidence attached, so it is the record that proves the join
-populates; CC-002 proves it returns `null`.
+**Decisions needed before writing:**
 
-**Then, in build order: T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
+1. What does `final_approval_status` become — `Pending`, mirroring T2's handling of
+   `implementation_approval_status`?
+2. Are any of the five fields **audited**? §6.6.2's list does **not** include them, so likely
+   only `StateChanged` + `SignatureCaptured` — but confirm against the doc rather than assuming
+3. `actual_implementation_date` (field 29) is a **retrospective** date — does it need a rule
+   (not in the future)? Nothing states one
+4. The evidence check needs a query — a `SELECT 1`-style existence check, or reuse
+   `GetFileAttachment` and discard the bytes? **The former** — pulling 10 MB to ask "does this
+   exist" would be wasteful
+
+**Then: T7/T8 (19) → dashboard (14) → signatures (22).**
 
 ---
 
@@ -1433,6 +1498,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 39  | **Helper extraction deferred to a later release**                                                                                                                                                                                                                                                          | §0's threshold _is_ reached — the signature block is verbatim across T2, T3 and T4/T5. But only T6 and T7/T8 remain, so deferring takes it from three copies to **five, not thirty**. Bounded, and finishing the endpoints has more value now. **The accepted risk:** two more copy-pastes are two more chances for a `cfg.db`/`qtx` slip, which is silent and would discard a failed-signature record. Named so the choice is deliberate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 40  | **Download is open to all roles and all states, and uses two queries rather than one joined query**                                                                                                                                                                                                        | _All roles:_ the plan says "authenticated"; the Approver **must** review evidence (US-AP-04) and Viewer/Admin can view any record (US-VI-03). Note the asymmetry on the same path — upload is owner-only, download is everyone, distinguished by method. _All states:_ a file can only exist if the CC reached `In Implementation`, so a state check would be mostly redundant — **but not harmless**, since after a T7 approval the record is `Closed` and the evidence must stay reachable. _Two queries:_ a join would be one round trip but **cannot distinguish** "CC does not exist" from "no file uploaded" (both return zero rows), so two lookups buy two distinct 404 messages. No lock — two reads with nothing decided between them                                                                                                                                                                                                                                                                                                                         |
 | 41  | **Three headers set explicitly, and a mid-transfer write failure is logged rather than returned**                                                                                                                                                                                                          | `Content-Type`, `Content-Disposition: attachment`, and **`Content-Length`** — the last is not cosmetic: without it the browser cannot distinguish a truncated transfer from a complete one and would save a **half-written PDF as though it were fine**. All `Set` calls must precede `WriteHeader`, since once the status is on the wire a later `Set` silently does nothing. If `w.Write` then fails, **the status cannot be changed** — `200 OK` has already been sent — so it is logged and the handler returns; the browser detects the truncation via `Content-Length` and surfaces it. Almost always the client cancelling. **No RFC 6266 `filename*=UTF-8''` encoding** — the filename was sanitised at upload, so `filename="…"` is safe; non-ASCII names render imperfectly in some browsers (flagged, not built). **No audit row** — §6.6.2 does not list views or downloads, though a stricter GxP reading might want access logging                                                                                                                        |
+| 42  | **Evidence metadata is exposed via the CC response, not a separate endpoint**                                                                                                                                                                                                                              | The form must show that a file exists — otherwise it renders an empty upload box over an attachment, the Approver has nothing to click at the final gate, and T6 rejects a submission with no way to see whether the evidence was already uploaded. **The alternative — the frontend probing the download endpoint and treating 404 as "no file" — would pull up to 10 MB to learn a filename.** Placing it on `GetChangeControlByCcID` means GET, Save Draft and all four transitions inherit it, since they all re-fetch through that one query. **Metadata only, never `file_data`** — that query runs on every read, every save and every transition                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ---
 
