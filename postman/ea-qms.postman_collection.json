@@ -31,7 +31,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n    \"email\": \"approver@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+              "raw": "{\r\n    \"email\": \"owner@eaqms.local\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3021,6 +3021,78 @@
               ],
               "cookie": [],
               "body": "{\n    \"error\": \"Unauthorized\"\n}"
+            },
+            {
+              "name": "200, with file attachment metadata",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-001",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-001"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 12:27:53 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n  \"cc_id\": \"CC-001\",\n  \"current_state\": \"In Implementation\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n  \"last_updated_on\": \"2026-08-12T15:30:34.244677+04:00\",\n  \"change_title\": \"Kiosk receipt printer firmware update\",\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"IT\",\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n  \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n  \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n  \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n  \"expected_downtime\": \"Yes\",\n  \"requires_testing\": \"Yes - Full testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n  \"rollback_backout_plan\": \"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"implementation_evidence\": {\n    \"file_name\": \"Writing An Interpreter In Go.pdf\",\n    \"file_size\": 1422764,\n    \"content_type\": \"application/pdf\",\n    \"uploaded_on\": \"2026-08-12T15:30:34.244677+04:00\"\n  },\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Approve\",\n  \"risk_level\": \"Medium\",\n  \"decision_comments\": \"Rollback plan now adequate. Approved to proceed.\",\n  \"implementation_approval_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"implementation_approval_by_name\": \"Default Approver\",\n  \"implementation_approval_on\": \"2026-08-10T15:57:56.407064+04:00\",\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Approved\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "200, with filled out file metadata",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-005",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-005"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 12:36:35 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"1886c26a-fc8b-46ab-98d0-1e6241b9da8a\",\n  \"cc_id\": \"CC-005\",\n  \"current_state\": \"In Implementation\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-08-12T16:28:41.682871+04:00\",\n  \"last_updated_on\": \"2026-08-12T16:35:40.837002+04:00\",\n  \"change_title\": \"Badge reader firmware patch\",\n  \"change_description\": \"Apply vendor patch v3.1.2 to all lobby badge readers\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"Security\",\n  \"affected_systems_modules\": \"Badge readers, main lobby and rear entrance\",\n  \"proposed_implementation_date\": \"2026-10-20T00:00:00Z\",\n  \"target_closure_date\": \"2026-12-15T00:00:00Z\",\n  \"implementation_window_start\": null,\n  \"implementation_window_end\": null,\n  \"reason_for_change\": \"Vendor advisory reports intermittent read failures on the current firmware\",\n  \"business_impact\": \"Staff occasionally unable to badge in during peak hours\",\n  \"expected_downtime\": \"No\",\n  \"requires_testing\": \"Yes - Partial testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; readers fail open to manual override during the patch window\",\n  \"key_risks_mitigations\": \"Reader lockout mitigated by security desk staffing during the window\",\n  \"high_level_implementation_plan\": \"Patch the rear entrance reader first, verify, then the main lobby\",\n  \"validation_approach\": \"Badge in and out at each reader ten times and confirm no read failures\",\n  \"success_criteria\": \"All readers accept valid badges with no intermittent failures over 24 hours\",\n  \"rollback_backout_plan\": \"Restore firmware v3.0.8 from the vendor image\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"implementation_evidence\": {\n    \"file_name\": \"system-design.pdf\",\n    \"file_size\": 268058,\n    \"content_type\": \"application/pdf\",\n    \"uploaded_on\": \"2026-08-12T16:35:40.837002+04:00\"\n  },\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Approve\",\n  \"risk_level\": \"Low\",\n  \"decision_comments\": \"Staffing confirmed. Approved to proceed.\",\n  \"implementation_approval_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"implementation_approval_by_name\": \"Default Approver\",\n  \"implementation_approval_on\": \"2026-08-12T16:32:51.701792+04:00\",\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Approved\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
             }
           ]
         },
@@ -5038,6 +5110,51 @@
               ],
               "cookie": [],
               "body": "{\n  \"error\": \"Some fields cannot be edited in the Initiated state\",\n  \"issues\": [\n    \"current_state\",\n    \"decision\"\n  ]\n}"
+            },
+            {
+              "name": "200, with file attachment metadata",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"change_title\": \"Badge reader firmware patch\",\r\n  \"change_description\": \"Apply vendor patch v3.1.2 to all lobby badge readers\",\r\n  \"change_type\": \"Hardware\",\r\n  \"change_category\": \"Normal\",\r\n  \"department_function\": \"Security\",\r\n  \"affected_systems_modules\": \"Badge readers, main lobby and rear entrance\",\r\n  \"proposed_implementation_date\": \"2026-10-20T00:00:00Z\",\r\n  \"target_closure_date\": \"2026-12-15T00:00:00Z\",\r\n  \"reason_for_change\": \"Vendor advisory reports intermittent read failures on the current firmware\",\r\n  \"business_impact\": \"Staff occasionally unable to badge in during peak hours\",\r\n  \"expected_downtime\": \"No\",\r\n  \"requires_testing\": \"Yes - Partial testing\",\r\n  \"requires_training\": \"No\",\r\n  \"risk_rationale\": \"Low risk; readers fail open to manual override during the patch window\",\r\n  \"key_risks_mitigations\": \"Reader lockout mitigated by security desk staffing during the window\",\r\n  \"high_level_implementation_plan\": \"Patch the rear entrance reader first, verify, then the main lobby\",\r\n  \"validation_approach\": \"Badge in and out at each reader ten times and confirm no read failures\",\r\n  \"success_criteria\": \"All readers accept valid badges with no intermittent failures over 24 hours\",\r\n  \"rollback_backout_plan\": \"Restore firmware v3.0.8 from the vendor image\",\r\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-005",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-005"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 12:29:13 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"1886c26a-fc8b-46ab-98d0-1e6241b9da8a\",\n  \"cc_id\": \"CC-005\",\n  \"current_state\": \"Initiated\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-08-12T16:28:41.682871+04:00\",\n  \"last_updated_on\": \"2026-08-12T16:29:13.229978+04:00\",\n  \"change_title\": \"Badge reader firmware patch\",\n  \"change_description\": \"Apply vendor patch v3.1.2 to all lobby badge readers\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"Security\",\n  \"affected_systems_modules\": \"Badge readers, main lobby and rear entrance\",\n  \"proposed_implementation_date\": \"2026-10-20T00:00:00Z\",\n  \"target_closure_date\": \"2026-12-15T00:00:00Z\",\n  \"implementation_window_start\": null,\n  \"implementation_window_end\": null,\n  \"reason_for_change\": \"Vendor advisory reports intermittent read failures on the current firmware\",\n  \"business_impact\": \"Staff occasionally unable to badge in during peak hours\",\n  \"expected_downtime\": \"No\",\n  \"requires_testing\": \"Yes - Partial testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; readers fail open to manual override during the patch window\",\n  \"key_risks_mitigations\": \"Reader lockout mitigated by security desk staffing during the window\",\n  \"high_level_implementation_plan\": \"Patch the rear entrance reader first, verify, then the main lobby\",\n  \"validation_approach\": \"Badge in and out at each reader ten times and confirm no read failures\",\n  \"success_criteria\": \"All readers accept valid badges with no intermittent failures over 24 hours\",\n  \"rollback_backout_plan\": \"Restore firmware v3.0.8 from the vendor image\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"implementation_evidence\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": null,\n  \"risk_level\": null,\n  \"decision_comments\": null,\n  \"implementation_approval_by_id\": null,\n  \"implementation_approval_by_name\": null,\n  \"implementation_approval_on\": null,\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Not Submitted\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
             }
           ]
         }
@@ -5933,6 +6050,52 @@
               ],
               "cookie": [],
               "body": "{\n  \"error\": \"Submit for Implementation Approval only allowed at Initiated state of CC\"\n}\n\n"
+            },
+            {
+              "name": "200, with file attachment metadata",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"OWNER@EAQMS.LOCAL\",\r\n    \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-005/submit",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-005",
+                    "submit"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 12:30:04 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"1886c26a-fc8b-46ab-98d0-1e6241b9da8a\",\n  \"cc_id\": \"CC-005\",\n  \"current_state\": \"Pending Implementation Approval\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"last_updated_by_name\": \"Default CC Owner\",\n  \"created_on\": \"2026-08-12T16:28:41.682871+04:00\",\n  \"last_updated_on\": \"2026-08-12T16:30:04.567255+04:00\",\n  \"change_title\": \"Badge reader firmware patch\",\n  \"change_description\": \"Apply vendor patch v3.1.2 to all lobby badge readers\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"Security\",\n  \"affected_systems_modules\": \"Badge readers, main lobby and rear entrance\",\n  \"proposed_implementation_date\": \"2026-10-20T00:00:00Z\",\n  \"target_closure_date\": \"2026-12-15T00:00:00Z\",\n  \"implementation_window_start\": null,\n  \"implementation_window_end\": null,\n  \"reason_for_change\": \"Vendor advisory reports intermittent read failures on the current firmware\",\n  \"business_impact\": \"Staff occasionally unable to badge in during peak hours\",\n  \"expected_downtime\": \"No\",\n  \"requires_testing\": \"Yes - Partial testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; readers fail open to manual override during the patch window\",\n  \"key_risks_mitigations\": \"Reader lockout mitigated by security desk staffing during the window\",\n  \"high_level_implementation_plan\": \"Patch the rear entrance reader first, verify, then the main lobby\",\n  \"validation_approach\": \"Badge in and out at each reader ten times and confirm no read failures\",\n  \"success_criteria\": \"All readers accept valid badges with no intermittent failures over 24 hours\",\n  \"rollback_backout_plan\": \"Restore firmware v3.0.8 from the vendor image\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"implementation_evidence\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": null,\n  \"risk_level\": null,\n  \"decision_comments\": null,\n  \"implementation_approval_by_id\": null,\n  \"implementation_approval_by_name\": null,\n  \"implementation_approval_on\": null,\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Pending\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
             }
           ]
         },
@@ -6283,6 +6446,52 @@
               ],
               "cookie": [],
               "body": "{\n  \"id\": \"c6c02766-bfd6-4d5e-bf70-5b4b09733e69\",\n  \"cc_id\": \"CC-001\",\n  \"current_state\": \"In Implementation\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"last_updated_by_name\": \"Default Approver\",\n  \"created_on\": \"2026-07-30T18:29:58.57442+04:00\",\n  \"last_updated_on\": \"2026-08-10T15:57:56.40604+04:00\",\n  \"change_title\": \"Kiosk receipt printer firmware update\",\n  \"change_description\": \"Update firmware on all lobby kiosk receipt printers to v2.4.1\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"IT\",\n  \"affected_systems_modules\": \"Lobby kiosks 1-6, receipt printer module\",\n  \"proposed_implementation_date\": \"2026-09-15T00:00:00Z\",\n  \"target_closure_date\": \"2026-11-30T00:00:00Z\",\n  \"implementation_window_start\": \"0000-01-01T09:00:00Z\",\n  \"implementation_window_end\": \"0000-01-01T17:30:00Z\",\n  \"reason_for_change\": \"Current firmware misaligns the currency symbol on printed receipts\",\n  \"business_impact\": \"Customer-facing receipts show incorrect formatting\",\n  \"expected_downtime\": \"Yes\",\n  \"requires_testing\": \"Yes - Full testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; firmware is vendor-signed and rollback is supported\",\n  \"key_risks_mitigations\": \"Printer bricking mitigated by staged rollout starting with kiosk 1\",\n  \"high_level_implementation_plan\": \"Stage firmware, update kiosk 1, verify, roll out to 2-6\",\n  \"validation_approach\": \"Print test receipts at each kiosk and compare to the reference\",\n  \"success_criteria\": \"All six kiosks print correctly formatted receipts\",\n  \"rollback_backout_plan\": \"Reflash v2.3.8 from the vendor image; verified restore procedure documented in runbook RB-114\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Approve\",\n  \"risk_level\": \"Medium\",\n  \"decision_comments\": \"Rollback plan now adequate. Approved to proceed.\",\n  \"implementation_approval_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"implementation_approval_by_name\": \"Default Approver\",\n  \"implementation_approval_on\": \"2026-08-10T15:57:56.407064+04:00\",\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Approved\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
+            },
+            {
+              "name": "200, with file attachment metadata",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"decision\": \"Approve\",\r\n  \"risk_level\": \"Low\",\r\n  \"decision_comments\": \"Staffing confirmed. Approved to proceed.\",\r\n  \"email\": \"approver@eaqms.local\",\r\n  \"password\": \"DevPassw0rd!\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-005/decision",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-005",
+                    "decision"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Wed, 12 Aug 2026 12:32:51 GMT"
+                },
+                {
+                  "key": "transfer-encoding",
+                  "value": "chunked"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"1886c26a-fc8b-46ab-98d0-1e6241b9da8a\",\n  \"cc_id\": \"CC-005\",\n  \"current_state\": \"In Implementation\",\n  \"change_owner_id\": \"73960fc2-1d28-47a8-bce4-6efc89b71467\",\n  \"change_owner_name\": \"Default CC Owner\",\n  \"last_updated_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"last_updated_by_name\": \"Default Approver\",\n  \"created_on\": \"2026-08-12T16:28:41.682871+04:00\",\n  \"last_updated_on\": \"2026-08-12T16:32:51.70035+04:00\",\n  \"change_title\": \"Badge reader firmware patch\",\n  \"change_description\": \"Apply vendor patch v3.1.2 to all lobby badge readers\",\n  \"change_type\": \"Hardware\",\n  \"change_category\": \"Normal\",\n  \"department_function\": \"Security\",\n  \"affected_systems_modules\": \"Badge readers, main lobby and rear entrance\",\n  \"proposed_implementation_date\": \"2026-10-20T00:00:00Z\",\n  \"target_closure_date\": \"2026-12-15T00:00:00Z\",\n  \"implementation_window_start\": null,\n  \"implementation_window_end\": null,\n  \"reason_for_change\": \"Vendor advisory reports intermittent read failures on the current firmware\",\n  \"business_impact\": \"Staff occasionally unable to badge in during peak hours\",\n  \"expected_downtime\": \"No\",\n  \"requires_testing\": \"Yes - Partial testing\",\n  \"requires_training\": \"No\",\n  \"risk_rationale\": \"Low risk; readers fail open to manual override during the patch window\",\n  \"key_risks_mitigations\": \"Reader lockout mitigated by security desk staffing during the window\",\n  \"high_level_implementation_plan\": \"Patch the rear entrance reader first, verify, then the main lobby\",\n  \"validation_approach\": \"Badge in and out at each reader ten times and confirm no read failures\",\n  \"success_criteria\": \"All readers accept valid badges with no intermittent failures over 24 hours\",\n  \"rollback_backout_plan\": \"Restore firmware v3.0.8 from the vendor image\",\n  \"actual_implementation_date\": null,\n  \"post_implementation_issues\": null,\n  \"implementation_summary\": null,\n  \"deviations_from_plan\": null,\n  \"validation_performed\": null,\n  \"implementation_evidence\": null,\n  \"assigned_approver_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"assigned_approver_name\": \"Default Approver\",\n  \"comments_for_approver\": null,\n  \"decision\": \"Approve\",\n  \"risk_level\": \"Low\",\n  \"decision_comments\": \"Staffing confirmed. Approved to proceed.\",\n  \"implementation_approval_by_id\": \"4bba81a9-6e29-4001-b6f7-9d341180ce3e\",\n  \"implementation_approval_by_name\": \"Default Approver\",\n  \"implementation_approval_on\": \"2026-08-12T16:32:51.701792+04:00\",\n  \"final_decision\": null,\n  \"final_comments\": null,\n  \"final_approval_by_id\": null,\n  \"final_approval_by_name\": null,\n  \"final_approval_on\": null,\n  \"implementation_approval_status\": \"Approved\",\n  \"final_approval_status\": \"Not Submitted\",\n  \"actual_closure_date\": null,\n  \"comments\": null,\n  \"cancellation_reason\": null\n}"
             }
           ]
         }
@@ -6779,13 +6988,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/changecontrols/CC-001/files/implementation_evidence",
+              "raw": "{{baseUrl}}/changecontrols/CC-002/files/implementation_evidence",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "changecontrols",
-                "CC-001",
+                "CC-002",
                 "files",
                 "implementation_evidence"
               ]
