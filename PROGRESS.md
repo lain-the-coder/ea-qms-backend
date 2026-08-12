@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 24 — **file upload** · **17 of 22**
-- **Next task:** checkpoint 25 — **file download** (endpoint 21), then the CC-response join
+- **Last checkpoint:** 25 — **file download** · **18 of 22 · Group 6 COMPLETE**
+- **Next task:** the **CC-response join** (evidence metadata) + regression pass, then T6
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -27,7 +27,7 @@ guardrail docs carry the substance and are always attached.
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                        |
 | API — Group 3 CCs (10–13)           | ✅ Complete                                        |
 | API — Group 5 Workflow (15–19)      | 🔵 **3 / 5** — T2 ✅, T3 ✅, T4/T5 ✅ (all inline) |
-| API — Group 6 Files (20–21)         | 🔵 **1 / 2** — upload ✅                           |
+| API — Group 6 Files (20–21)         | ✅ Complete                                        |
 | API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                           |
 
 ---
@@ -1250,34 +1250,78 @@ fires on `INSERT` — without it a replacement would keep the original upload ti
 
 ---
 
+### ✅ Checkpoint 25 — **file download** · `GET /api/changecontrols/{ccID}/files/{fieldName}` (endpoint 21 of 22) · **Group 6 complete**
+
+**Authenticated, all roles, all states.** No ownership check — the Approver _must_ review
+evidence at the final gate (US-AP-04) and Viewer/Admin can view any record (US-VI-03, §2.2).
+
+**Note the asymmetry with upload on the same path:** owner-only there, everyone here,
+distinguished by method. The Approver gets **403 on POST and 200 on GET**.
+
+**No state check, and deliberately so.** A file can only exist if the CC reached
+`In Implementation`, so a check would be mostly redundant — **but not harmless**: after a T7
+approval the CC is `Closed` and the file still exists, so restricting by state would make
+evidence unreachable on exactly the records an auditor would want.
+
+**Two queries, not a join** (decision #40). `GetChangeControlIDByCcID` resolves the business
+key to the UUID `file_attachments` references; `GetFileAttachment` then fetches by UUID +
+field. A joined query would be one round trip but **could not distinguish** "CC does not
+exist" from "no file uploaded" — both return zero rows. Two lookups buy two distinct 404
+messages.
+
+**`GetFileAttachment` is the only query in the project that selects `file_data`.** Every other
+read avoids it, including the CC-response join, because those run on every save and every
+transition.
+
+**No transaction, no lock** — two reads, no writes, nothing to make atomic. **First handler
+since checkpoint 12 with neither.**
+
+**Three headers, set before `WriteHeader`** (decision #41). `Content-Length` is not cosmetic:
+without it the browser cannot tell a truncated transfer from a complete one, and would save a
+half-written PDF as though it were fine. A `w.Write` failure is **logged, not returned** —
+once `200 OK` is on the wire the status cannot be changed, and the browser surfaces the
+truncation itself. The success log moved _after_ the write, so `"file downloaded"` never
+appears for a transfer that failed.
+
+**Raw bytes, not JSON** — `w.Write` rather than `respondWithJSON`, which would have forced
+base64 and inflated the payload by a third.
+
+| Check                                                                                                                                             | Verified |
+| ------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| CC Owner → 200 · **Approver → 200** (403 on upload at the same path)                                                                              | ✅       |
+| `CC-999` → 404 _"Change Control not found"_                                                                                                       | ✅       |
+| `CC-002` → 404 _"File not found for Implementation Evidence field"_ — **the distinction**                                                         | ✅       |
+| `supporting_documents` → 400 · no token → 401                                                                                                     | ✅       |
+| All three headers present and correct                                                                                                             | ✅       |
+| **1.4 MB PDF round-tripped byte-for-byte** — 1,422,764 in the upload log, the download log, `Content-Length`, and the saved file                  | ✅       |
+| That file **exceeded the 1 MB `ParseMultipartForm` limit and spilled to disk** — 241 ms against 32 ms for a 15 KB upload. First test of that path | ✅       |
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 25 — **file download** (endpoint 21), then the CC-response join
+### ⬜ Next — the **CC-response join** (evidence metadata), then T6
 
-**`GET /api/changecontrols/{ccID}/files/{fieldName}`** — small. One query, three headers, raw
-bytes.
+**Not a new endpoint** — three edits so every CC response carries the evidence metadata
+(deferred at decision #38). Without it the form cannot show that a file exists, the Approver
+has nothing to click, and T6 would reject a submission with no way to see whether the file was
+already uploaded.
 
-- **Any authenticated role, any state** (§2.2: the Approver _"reviews implementation evidence"_
-  at the final gate; Viewer and Admin can view throughout). No ownership check, no state check
-- `GetFileAttachment` — **the only query that selects `file_data`**
-- `Content-Disposition: attachment; filename="…"` — where the sanitised filename finally
-  earns its keep
-- `w.Write(bytes)` rather than `respondWithJSON`, and **every header must be set before the
-  first write** — once the body starts, a later `Set` silently does nothing
-
-**Then the CC-response join** (deferred from decision #38), in three places:
-
-1. `GetChangeControlByCcID` gains a `LEFT JOIN file_attachments … AND field_name =
+1. **`GetChangeControlByCcID`** gains
+   `LEFT JOIN file_attachments ev ON ev.change_control_id = cc.id AND ev.field_name =
 'implementation_evidence'`, selecting **four columns only — never `file_data`**, since this
    query runs on every CC read, every save and every transition
-2. `ChangeControlResponse` gains `ImplementationEvidence *FileRef` — nil when no file
-3. `toChangeControlResponse` maps it
+2. **`ChangeControlResponse`** gains `ImplementationEvidence *FileRef` — nil when no file
+3. **`toChangeControlResponse`** maps it
 
-One place each, and every endpoint returning a CC picks it up automatically. **Then a
-regression pass** — at least one call per existing endpoint, since the shared query and mapper
-change.
+One place each, and every endpoint returning a CC picks it up automatically — GET, Save Draft
+and all four transitions route through the same query and mapper.
 
-**After that: T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
+**Then a regression pass** — at least one call per existing endpoint, since the shared query
+and mapper both change. CC-001 has evidence attached, so it is the record that proves the join
+populates; CC-002 proves it returns `null`.
+
+**Then, in build order: T6 (18) → T7/T8 (19) → dashboard (14) → signatures (22).**
 
 ---
 
@@ -1387,6 +1431,8 @@ Settled in working sessions and binding. They exist nowhere else.
 | 37  | **File uploads write no audit rows**                                                                                                                                                                                                                                                                       | §6.6.2 does not list them, and FR-6.6.6 excludes non-critical field changes. More decisively: **an audit row could not preserve the replaced file** — the upsert overwrites the bytes, so a row reading `evidence-v1.pdf → evidence-v2.pdf` would advertise a gap rather than close one, claiming a document existed while being unable to produce it. Preserving history would need a versioned table, which nothing asks for. Replacing an attachment is the same category of act as editing `implementation_summary` twice, which is also unaudited                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 38  | **Upload runs in a transaction with `GetChangeControlForUpdate`, and bumps `last_updated_*`**                                                                                                                                                                                                              | Two writes across two tables (the attachment and the CC touch) must land together, so a transaction is required regardless. The **lock** then closes a narrow race: the same user uploading in one tab while submitting for final approval in another could otherwise attach evidence to a record that had already moved to `Pending Final Approval` — the Approver would review a file the owner never signed for. The `last_updated_*` bump keeps evidence consistent with the other five fields editable in that state, which bump it via Save Draft. **The file is read and validated _before_ the transaction opens**, so a database lock is never held across a slow network read                                                                                                                                                                                                                                                                                                                                                                                 |
 | 39  | **Helper extraction deferred to a later release**                                                                                                                                                                                                                                                          | §0's threshold _is_ reached — the signature block is verbatim across T2, T3 and T4/T5. But only T6 and T7/T8 remain, so deferring takes it from three copies to **five, not thirty**. Bounded, and finishing the endpoints has more value now. **The accepted risk:** two more copy-pastes are two more chances for a `cfg.db`/`qtx` slip, which is silent and would discard a failed-signature record. Named so the choice is deliberate                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 40  | **Download is open to all roles and all states, and uses two queries rather than one joined query**                                                                                                                                                                                                        | _All roles:_ the plan says "authenticated"; the Approver **must** review evidence (US-AP-04) and Viewer/Admin can view any record (US-VI-03). Note the asymmetry on the same path — upload is owner-only, download is everyone, distinguished by method. _All states:_ a file can only exist if the CC reached `In Implementation`, so a state check would be mostly redundant — **but not harmless**, since after a T7 approval the record is `Closed` and the evidence must stay reachable. _Two queries:_ a join would be one round trip but **cannot distinguish** "CC does not exist" from "no file uploaded" (both return zero rows), so two lookups buy two distinct 404 messages. No lock — two reads with nothing decided between them                                                                                                                                                                                                                                                                                                                         |
+| 41  | **Three headers set explicitly, and a mid-transfer write failure is logged rather than returned**                                                                                                                                                                                                          | `Content-Type`, `Content-Disposition: attachment`, and **`Content-Length`** — the last is not cosmetic: without it the browser cannot distinguish a truncated transfer from a complete one and would save a **half-written PDF as though it were fine**. All `Set` calls must precede `WriteHeader`, since once the status is on the wire a later `Set` silently does nothing. If `w.Write` then fails, **the status cannot be changed** — `200 OK` has already been sent — so it is logged and the handler returns; the browser detects the truncation via `Content-Length` and surfaces it. Almost always the client cancelling. **No RFC 6266 `filename*=UTF-8''` encoding** — the filename was sanitised at upload, so `filename="…"` is safe; non-ASCII names render imperfectly in some browsers (flagged, not built). **No audit row** — §6.6.2 does not list views or downloads, though a stricter GxP reading might want access logging                                                                                                                        |
 
 ---
 
@@ -1413,6 +1459,7 @@ into the UI build / handover rather than being buried in the flags table.
 | F14 | **The signature modal's "Username" field is the user's EMAIL.** `users` has no username column; the API compares against `user.Email` (case-insensitively). Relabel the field                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | checkpoint 21                                      |
 | F15 | **The retry loop is: fix → save → submit.** A failed submit leaves the record completely untouched — no state change, no signature — so retrying is safe. The only trace is a `SignatureFailed` audit row, and only when the failure was a _credential_ one; a validation failure writes nothing                                                                                                                                                                                                                                                                                                                                                        | checkpoint 21                                      |
 | F16 | **Evidence upload is `multipart/form-data`, not JSON, and the file part must be named `file`.** `POST /api/changecontrols/{ccID}/files/implementation_evidence` with a single part keyed `file`. **Do not set `Content-Type` manually** — the browser generates it with the boundary string, and overriding it breaks parsing. **PDF only, 10 MB max** (decision #35). The bearer token is still required, as everywhere else                                                                                                                                                                                                                           | checkpoint 24                                      |
+| F17 | **Download cannot be a plain `<a href>` — it needs `fetch()`.** The endpoint requires the bearer token, and a hyperlink cannot send headers, so the obvious approach fails with a 401. Use `fetch()` with the Authorization header → `.blob()` → `URL.createObjectURL()` → synthesise a click. The `try/catch` also handles a truncated transfer: the browser rejects the promise by comparing bytes received against `Content-Length`, so no manual byte counting is needed                                                                                                                                                                            | checkpoint 25                                      |
 
 ---
 
@@ -1443,6 +1490,7 @@ into the UI build / handover rather than being buried in the flags table.
 | 21  | **Date rules are computed in UTC, not a business timezone.** `businessDaysFrom` is fed `time.Now().UTC()` truncated to midnight. Abu Dhabi is UTC+4, so **between 00:00 and 04:00 local, "today" in UTC is still yesterday** and both date rules are silently one day more lenient. Found empirically: a submission at 01:42 local on Aug 6 computed "today" as Aug 5 and accepted a proposed date that should have been rejected. In a regulated system the same record validating differently depending on the hour is a real defect. **Deliberately not fixed in release 1** — the intended fix is a `TIMEZONE` env var (e.g. `Asia/Dubai`) read once at startup, so the business day is defined by configuration rather than by where the server happens to run. Note `today` must stay a **UTC midnight** for the comparison, since `DATE` columns arrive as UTC midnights; only the _choice of calendar date_ is local                                                                                                                                                                                                                                                                                                                      | Deferred to a later release                                                                                        |
 | 22  | **`businessDaysFrom` treats Saturday and Sunday as the weekend.** The UAE working week is Monday–Friday for most private-sector employers, but this has not been confirmed with EAMI, and the field reference says only _"weekdays only (no public holidays in Phase 1)"_. If their weekend is Friday–Saturday, every date rule is wrong by a day or two. **Worth asking before go-live**; it is a one-line change in the helper, and its test file already covers weekend boundaries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Open — needs confirming with EAMI                                                                                  |
 | 23  | **Two guardrail docs contradict each other on `target_closure_date` after a rejection.** BRD **SC-6** says _"Target Closure Date is **locked after initial submission**"_; `CC_Field_Reference.md` field 14 says _"**Editable whenever state = Initiated** (incl. after rejection)"_. These cannot both hold — T5 (reject) returns a CC to `Initiated`. **Implemented per the field reference** (editable), and deliberately: after a rejection the owner may have to rework the implementation plan, and locking the closure date could leave them unable to submit a coherent record. **The BRD needs correcting**; relevant when building T5 (checkpoint 23)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Open — doc conflict, implementation decided                                                                        |
+| 24  | **Non-ASCII filenames may render imperfectly on download.** `Content-Disposition` uses only `filename="…"`, not RFC 6266's `filename*=UTF-8''…`, so a name containing Arabic or accented characters could display as mojibake in some browsers. Harmless — the file content is unaffected and the name is already sanitised of anything header-breaking. Adding the encoded form is a one-line change if it ever matters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Noted; cosmetic only                                                                                               |
 
 ---
 
