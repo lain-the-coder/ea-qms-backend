@@ -117,6 +117,17 @@ var draftEditableFields = map[string]struct{}{
 	"assigned_approver_id": {}, "comments_for_approver": {}, "comments": {},
 }
 
+// The five fields editable in the In Implementation state (BRD 29–33). Field 34
+// is the evidence file, handled by POST /{ccID}/files/{fieldName}.
+// Must stay in sync with the field blocks below.
+var implementationEditableFields = map[string]struct{}{
+	"actual_implementation_date": {},
+	"post_implementation_issues": {},
+	"implementation_summary":     {},
+	"deviations_from_plan":       {},
+	"validation_performed":       {},
+}
+
 // toChangeControlResponse maps a joined change control row into the API shape.
 // Used by both GET /{ccID} and PUT /{ccID}, which return identical bodies.
 func toChangeControlResponse(row database.GetChangeControlByCcIDRow) ChangeControlResponse {
@@ -1313,6 +1324,267 @@ func (cfg *apiConfig) HandlerSaveDraft(w http.ResponseWriter, r *http.Request, u
 	}
 	if changed {
 		log.Info("cc draft saved", "cc_id", ccID)
+	} else {
+		log.Info("cc record unchanged", "cc_id", ccID)
+	}
+	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
+}
+
+func (cfg *apiConfig) HandlerSaveImplementationDetails(w http.ResponseWriter, r *http.Request, user database.User) {
+	type validationErrorResponse struct {
+		Error  string   `json:"error"`
+		Issues []string `json:"issues"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	// extract path parameter
+	ccIDRawStr := r.PathValue("ccID")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("save implementation draft failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// use json.RawMessage to delay decoding and saving json value as byte array
+	// helps for three way check - if key/value is not sent (no update), if null is sent (clear), if value is sent (normal update)
+	// since i can do key present check for body map
+	var body map[string]json.RawMessage
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		log.Warn("save implementation draft failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if len(body) == 0 {
+		log.Warn("save implementation draft failed", "reason", "no fields to update")
+		respondWithError(w, "No fields to update", http.StatusBadRequest)
+		return
+	}
+	// reject unknown or non-editable keys — collected, so a client with several
+	// bad keys learns all of them in one response
+	var invalidFields []string
+	for key := range body {
+		if _, ok := implementationEditableFields[key]; !ok {
+			invalidFields = append(invalidFields, key)
+		}
+	}
+	if len(invalidFields) > 0 {
+		sort.Strings(invalidFields)
+		log.Warn("save implementation draft failed", "reason", "fields not editable in this state",
+			"cc_id", ccID, "invalid_count", len(invalidFields))
+		respondWithJSON(w, http.StatusBadRequest, validationErrorResponse{
+			Error:  "Some fields cannot be edited in the In Implementation state",
+			Issues: invalidFields,
+		})
+		return
+	}
+	// open transaction
+	tx, err := cfg.rawDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Error("save implementation draft failed", "reason", "could not begin transaction", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+	qtx := cfg.db.WithTx(tx)
+	// retrieve cc details with intent of updating
+	cc, err := qtx.GetChangeControlForUpdate(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("save implementation draft failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("save implementation draft failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// ownership check
+	if user.ID != cc.ChangeOwnerID {
+		log.Warn("save implementation draft failed", "reason", "user is not owner of cc", "cc_id", ccID)
+		respondWithError(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	// state check
+	if cc.CurrentState != stateInImplementation {
+		log.Warn("save implementation draft failed", "reason", "save only allowed in In Implementation state", "cc_id", ccID)
+		respondWithError(w, "Save action only allowed at In Implementation state of CC", http.StatusConflict)
+		return
+	}
+	// Seed every parameter with the record's CURRENT value. The UPDATE assigns all
+	// 5 columns unconditionally, so anything the client did not send must be
+	// re-written as-is — otherwise it would be nulled. Each field block below
+	// overwrites only its own entry, so "leave unchanged" is the default.
+	params := database.UpdateImplementationDetailsParams{
+		CcID:                     cc.CcID,
+		ActualImplementationDate: cc.ActualImplementationDate,
+		PostImplementationIssues: cc.PostImplementationIssues,
+		ImplementationSummary:    cc.ImplementationSummary,
+		DeviationsFromPlan:       cc.DeviationsFromPlan,
+		ValidationPerformed:      cc.ValidationPerformed,
+		LastUpdatedByID:          user.ID,
+	}
+	// bool flag to find no-op case
+	changed := false
+	if raw, present := body["actual_implementation_date"]; present {
+		// unmarshal — *time.Time accepts RFC 3339 or null
+		var v *time.Time
+		if err := json.Unmarshal(raw, &v); err != nil {
+			log.Warn("save implementation draft failed", "reason",
+				"actual_implementation_date must be an RFC 3339 timestamp or null", "cc_id", ccID)
+			respondWithError(w, "Actual Implementation Date must be an RFC 3339 timestamp or null", http.StatusBadRequest)
+			return
+		}
+		params.ActualImplementationDate = v
+		if !sameTimePtr(v, cc.ActualImplementationDate) {
+			changed = true
+		}
+	}
+	if raw, present := body["post_implementation_issues"]; present {
+		// unmarshal
+		var v *string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			log.Warn("save implementation draft failed", "reason",
+				"post_implementation_issues must be a string or null", "cc_id", ccID)
+			respondWithError(w, "Post Implementation Issues must be a string or null", http.StatusBadRequest)
+			return
+		}
+		// normalize
+		if v != nil {
+			t := strings.TrimSpace(*v)
+			if t == "" {
+				v = nil
+			} else {
+				v = &t
+			}
+		}
+		// constraint check — values use an ASCII hyphen, not an en-dash (DB §6.5)
+		if v != nil {
+			switch *v {
+			case postImplNone, postImplMinorResolved, postImplRequiresFollowUp:
+			default:
+				log.Warn("save implementation draft failed", "reason", "Invalid post_implementation_issues", "cc_id", ccID)
+				respondWithError(w, "Invalid Post Implementation Issue", http.StatusBadRequest)
+				return
+			}
+		}
+		params.PostImplementationIssues = v
+		if !sameStrPtr(v, cc.PostImplementationIssues) {
+			changed = true
+		}
+	}
+	if raw, present := body["implementation_summary"]; present {
+		// unmarshal
+		var v *string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			log.Warn("save implementation draft failed", "reason", "implementation_summary must be a string or null", "cc_id", ccID)
+			respondWithError(w, "Implementation Summary must be a string or null", http.StatusBadRequest)
+			return
+		}
+		// normalize
+		if v != nil {
+			t := strings.TrimSpace(*v)
+			if t == "" {
+				v = nil
+			} else {
+				v = &t
+			}
+		}
+		// max length — 2000 runes
+		if v != nil && len([]rune(*v)) > 2000 {
+			log.Warn("save implementation draft failed", "reason", "implementation_summary must be 2000 characters or fewer", "cc_id", ccID)
+			respondWithError(w, "Implementation Summary must be 2000 characters or fewer", http.StatusBadRequest)
+			return
+		}
+		params.ImplementationSummary = v
+		if !sameStrPtr(v, cc.ImplementationSummary) {
+			changed = true
+		}
+	}
+	if raw, present := body["deviations_from_plan"]; present {
+		// unmarshal
+		var v *string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			log.Warn("save implementation draft failed", "reason", "deviations_from_plan must be a string or null", "cc_id", ccID)
+			respondWithError(w, "Deviations From Plan must be a string or null", http.StatusBadRequest)
+			return
+		}
+		// normalize
+		if v != nil {
+			t := strings.TrimSpace(*v)
+			if t == "" {
+				v = nil
+			} else {
+				v = &t
+			}
+		}
+		// max length — 2000 runes
+		if v != nil && len([]rune(*v)) > 2000 {
+			log.Warn("save implementation draft failed", "reason", "deviations_from_plan must be 2000 characters or fewer", "cc_id", ccID)
+			respondWithError(w, "Deviations From Plan must be 2000 characters or fewer", http.StatusBadRequest)
+			return
+		}
+		params.DeviationsFromPlan = v
+		if !sameStrPtr(v, cc.DeviationsFromPlan) {
+			changed = true
+		}
+	}
+	if raw, present := body["validation_performed"]; present {
+		// unmarshal
+		var v *string
+		if err := json.Unmarshal(raw, &v); err != nil {
+			log.Warn("save implementation draft failed", "reason", "validation_performed must be a string or null", "cc_id", ccID)
+			respondWithError(w, "Validation Performed must be a string or null", http.StatusBadRequest)
+			return
+		}
+		// normalize
+		if v != nil {
+			t := strings.TrimSpace(*v)
+			if t == "" {
+				v = nil
+			} else {
+				v = &t
+			}
+		}
+		// max length — 2000 runes
+		if v != nil && len([]rune(*v)) > 2000 {
+			log.Warn("save implementation draft failed", "reason",
+				"validation_performed must be 2000 characters or fewer", "cc_id", ccID)
+			respondWithError(w, "Validation Performed must be 2000 characters or fewer", http.StatusBadRequest)
+			return
+		}
+		params.ValidationPerformed = v
+		if !sameStrPtr(v, cc.ValidationPerformed) {
+			changed = true
+		}
+	}
+	// The update (if any) runs first, then the re-fetch, then the commit — all
+	// inside the transaction. Reading before the commit means a failure at any
+	// point leaves nothing written, so the error and the record's state agree.
+	if changed {
+		_, err = qtx.UpdateImplementationDetails(r.Context(), params)
+		if err != nil {
+			log.Error("save implementation draft failed", "reason", "cc update failed", "cc_id", ccID, "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	}
+	// re-fetch with the five user joins so the response matches GET /{ccID}.
+	// A transaction reads its own uncommitted writes, so this returns the
+	// post-update values.
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
+	if err != nil {
+		log.Error("save implementation draft failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Error("save implementation draft failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if changed {
+		log.Info("cc implementation draft saved", "cc_id", ccID)
 	} else {
 		log.Info("cc record unchanged", "cc_id", ccID)
 	}

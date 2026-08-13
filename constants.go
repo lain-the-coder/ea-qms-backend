@@ -150,3 +150,10 @@ const (
 // 'supporting_documents' is deliberately NOT accepted in release 1. The CHECK
 // constraint still permits it, so THIS whitelist is the only thing enforcing that.
 const fieldImplementationEvidence = "implementation_evidence"
+
+// Post-implementation issues — ck_cc_post_impl_issues
+const (
+	postImplNone             = "None"
+	postImplMinorResolved    = "Minor issues resolved"
+	postImplRequiresFollowUp = "Issues requiring follow-up"
+)

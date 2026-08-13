@@ -211,3 +211,19 @@ WHERE cc_id = $1;
 -- name: GetChangeControlIDByCcID :one
 SELECT id FROM change_controls
 WHERE cc_id = $1;
+
+-- name: UpdateImplementationDetails :one
+UPDATE change_controls
+SET
+    -- Implementation Details (BRD 29–33)
+    actual_implementation_date = sqlc.narg('actual_implementation_date'),
+    post_implementation_issues = sqlc.narg('post_implementation_issues'),
+    implementation_summary     = sqlc.narg('implementation_summary'),
+    deviations_from_plan       = sqlc.narg('deviations_from_plan'),
+    validation_performed       = sqlc.narg('validation_performed'),
+
+    -- system
+    last_updated_by_id = sqlc.arg('last_updated_by_id'),
+    last_updated_on    = NOW()
+WHERE cc_id = sqlc.arg('cc_id')
+RETURNING *;

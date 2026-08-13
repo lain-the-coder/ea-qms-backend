@@ -105,6 +105,8 @@ func main() {
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListChangeControls)))
 	mux.Handle("PUT /api/changecontrols/{ccID}",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSaveDraft)))
+	mux.Handle("PUT /api/changecontrols/{ccID}/implementation",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSaveImplementationDetails)))
 
 	// workflow routes
 	mux.Handle("POST /api/changecontrols/{ccID}/submit",
