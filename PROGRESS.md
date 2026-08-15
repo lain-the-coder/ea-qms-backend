@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 27 — **save implementation details** · **19 of 23** (a 23rd endpoint was added)
-- **Next task:** checkpoint 28 — **T6 submit-final** (endpoint 18) — now a copy of T2
+- **Last checkpoint:** 28 — **T6 submit-final** · **20 of 23**
+- **Next task:** checkpoint 29 — **T7/T8 final decision** (endpoint 19), then dashboard and signatures
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -16,19 +16,19 @@ guardrail docs carry the substance and are always attached.
 
 ## Phase status
 
-| Phase                               | State                                              |
-| ----------------------------------- | -------------------------------------------------- |
-| Migrations (001–006)                | ✅ Complete — all six tables applied and verified  |
-| sqlc setup                          | ✅ Complete — pointer types working under lib/pq   |
-| `internal/auth` (argon2id)          | ✅ Complete — hashing + tests + app wiring         |
-| `cmd/seed`                          | ✅ Complete — 4 users seeded and verified          |
-| Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end        |
-| API — Group 1 Auth (1–3)            | ✅ Complete                                        |
-| API — Group 2 Users & Profile (4–9) | ✅ Complete                                        |
-| API — Group 3 CCs (10–13)           | ✅ Complete                                        |
-| API — Group 5 Workflow (15–19)      | 🔵 **3 / 5** — T2 ✅, T3 ✅, T4/T5 ✅ (all inline) |
-| API — Group 6 Files (20–21)         | ✅ Complete                                        |
-| API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                           |
+| Phase                               | State                                             |
+| ----------------------------------- | ------------------------------------------------- |
+| Migrations (001–006)                | ✅ Complete — all six tables applied and verified |
+| sqlc setup                          | ✅ Complete — pointer types working under lib/pq  |
+| `internal/auth` (argon2id)          | ✅ Complete — hashing + tests + app wiring        |
+| `cmd/seed`                          | ✅ Complete — 4 users seeded and verified         |
+| Structured logging (slog+context)   | ✅ Complete — request IDs proven end to end       |
+| API — Group 1 Auth (1–3)            | ✅ Complete                                       |
+| API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
+| API — Group 3 CCs (10–13)           | ✅ Complete                                       |
+| API — Group 5 Workflow (15–19)      | 🔵 **4 / 5** — T2 ✅, T3 ✅, T4/T5 ✅, T6 ✅      |
+| API — Group 6 Files (20–21)         | ✅ Complete                                       |
+| API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                          |
 
 ---
 
@@ -1400,37 +1400,97 @@ rejection, the same `changed` bool and re-fetch-before-commit.
 
 ---
 
+### ✅ Checkpoint 28 — **T6 submit-final** · `POST /api/changecontrols/{ccID}/submit-final` (endpoint 18 of 23)
+
+`In Implementation` → **`Pending Final Approval`**. Owner-only, `In Implementation` only.
+
+**A copy of T2's shape — and it only became one because endpoint 23 took the field writes
+away** (decision #43). Otherwise this handler would have saved _and_ validated _and_ signed
+_and_ transitioned in a single request.
+
+**`FileAttachmentExists`** — `SELECT EXISTS(…)` returning a bool. Deliberately **not**
+`GetFileAttachment`: pulling up to 10 MB to answer a yes/no question would be absurd, and that
+is the only query in the project touching `file_data`.
+
+**Four mandatory fields, not five** — `deviations_from_plan` is the only optional one in the
+group. Plus the **evidence file must exist or submission is blocked** (field 34) — the check
+that justified building files before T6.
+
+**The evidence result joins the same `problems` slice as the four presence checks**, so a user
+missing everything gets one response listing five items rather than discovering them one at a
+time.
+
+**`actual_implementation_date` must not be in the future** (decision #44) — save accepts any
+date, since a user may draft on Monday for work scheduled Wednesday; T6 enforces the
+retrospective rule at the moment of submission. Its own midnight-UTC truncation, separate from
+the transaction's audit timestamp.
+
+**FR-6.2.35 puts the signature last**, exactly as at T2: _"the signature prompt shall appear
+only after all implementation detail validations have passed."_
+
+**Two audit rows** — `StateChanged` and `SignatureCaptured`. None of fields 29–33 are auditable
+(§6.6.2), and none changed here anyway.
+
+| Check                                                                                                                                                                          | Verified |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| Future date → 400 **after being accepted at save** — decision #44 on one record                                                                                                | ✅       |
+| All four fields cleared → **exactly four issues**, `Implementation Evidence` correctly absent                                                                                  | ✅       |
+| Wrong password → 401 · another user's valid credentials → 401, record unmoved                                                                                                  | ✅       |
+| Success → `Pending Final Approval`, `final_approval_status: Pending`                                                                                                           | ✅       |
+| **Fifth signature on CC-005** — T2, T5, T2, T4, **T6** — a complete history including a rejection                                                                              | ✅       |
+| Two audit rows sharing one timestamp with the T6 signature                                                                                                                     | ✅       |
+| **Phase 5, fresh record:** create → draft → submit → approve → fill four fields → **upload nothing** → **400 with exactly one issue: "Implementation Evidence"**; upload → 200 | ✅       |
+| Resubmit 409 · **`PUT /{ccID}/implementation` 409** · **file upload 409**                                                                                                      | ✅       |
+| Wrong state 409 · unknown CC 404 · Admin/Approver 403 · no token 401                                                                                                           | ✅       |
+
+**Tests 7 and 8 matter most among the gates:** `Pending Final Approval` locks **both** the
+implementation fields **and** the evidence file, so the Approver reviews exactly what was
+signed for. Without that, evidence could change after attestation with no new signature.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 28 — **T6 submit-final** (endpoint 18)
+### ⬜ Checkpoint 29 — **T7 / T8 final decision** (endpoint 19)
 
-`POST /api/changecontrols/{ccID}/submit-final` — **`In Implementation` → `Pending Final
-Approval`**. Owner-only, `In Implementation` only.
+`POST /api/changecontrols/{ccID}/final-decision` — **one endpoint, two outcomes**, and
+structurally **T4/T5 with different constants**.
 
-**Now a copy of T2**, since endpoint 23 took the field writes away. Body is
-`{email, password}`; validation runs against what is stored.
+|                | From                   | To                        | `final_approval_status` |
+| -------------- | ---------------------- | ------------------------- | ----------------------- |
+| **T7 approve** | Pending Final Approval | **`Closed`** _(terminal)_ | `Approved`              |
+| **T8 reject**  | Pending Final Approval | **`In Implementation`**   | ? — needs deciding      |
 
-|                   |                                                                                                                                     |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Presence          | the 5 fields — but **`deviations_from_plan` is optional**, so **4 mandatory**: 29, 30, 31, 33                                       |
-| Business rule     | `actual_implementation_date` **must not be in the future** (decision #44) — same `today` truncation as T2, and it inherits flag #21 |
-| **Evidence file** | **must exist or submission is blocked** (field 34) — the reason files were built first                                              |
-| Writes            | state + `final_approval_status`                                                                                                     |
-| Signature         | `T6` / `Submitted for Final Approval` (**no hyphen** in this one)                                                                   |
-| Audit             | `StateChanged` + `SignatureCaptured` only — none of 29–33 are auditable                                                             |
-| Notification      | the **assigned approver**                                                                                                           |
+**Assigned approver only**, same record-level check as T4/T5.
+
+| Field                                  | Note                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| `final_decision` (42)                  | `Approve` / `Reject` — **audited**                                       |
+| `final_comments` (43)                  | mandatory both paths — **audited**                                       |
+| `final_approval_by_id` / `_on` (44/45) | **approve only**, never on reject — same asymmetry as 40/41              |
+| **`actual_closure_date` (48)**         | **system-set on T7 only** — BRD §8.1 transition table says so explicitly |
+
+**Four audit rows on approve** — `StateChanged`, two `FieldUpdated` (`final_decision`,
+`final_comments`), `SignatureCaptured`. `old_value` comes from the loaded record, so a
+re-review after a T8 rejection shows `Reject → Approve`.
+
+**Note there is no `risk_level` equivalent at this gate** — T4/T5 had three audited fields,
+T7/T8 has two.
 
 **Decisions needed:**
 
-1. What does `final_approval_status` become — **`Pending`**, mirroring T2's handling of
-   `implementation_approval_status`? Nothing states it
-2. The evidence check needs a query. **An existence check, not `GetFileAttachment`** — pulling
-   up to 10 MB to ask "does this exist" would be wasteful. Something like
-   `SELECT EXISTS(SELECT 1 FROM file_attachments WHERE …)`
-3. Does the missing-evidence failure join the **collect-all** list with the four field names,
-   or is it a separate error? Joining it is friendlier — one response listing everything wrong
+1. `final_approval_status` on **rejection** — back to `Not Submitted`, mirroring decision #34?
+2. Does `actual_closure_date` use the transaction's `now`, so it matches the audit rows and
+   the signature? (Almost certainly yes — same reasoning as
+   `implementation_approval_on` at T4)
+3. Two update queries again, since only the approve path writes `by`/`on` **and**
+   `actual_closure_date`?
 
-**Then: T7/T8 (19) → dashboard (14) → signatures (22).**
+**`Closed` is terminal** — worth verifying afterwards that nothing transitions out, edits, or
+uploads to a closed record. **CC-005 and CC-007 are both sitting in `Pending Final Approval`**,
+so you can test a reject on one and an approve on the other.
+
+**Then: dashboard (14) → signatures (22).**
 
 ---
 
