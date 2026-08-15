@@ -227,3 +227,12 @@ SET
     last_updated_on    = NOW()
 WHERE cc_id = sqlc.arg('cc_id')
 RETURNING *;
+
+-- name: SubmitForFinalApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    final_approval_status = $3,
+    last_updated_by_id = $4,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;

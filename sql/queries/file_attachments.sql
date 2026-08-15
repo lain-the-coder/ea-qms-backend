@@ -23,3 +23,9 @@ RETURNING id, change_control_id, field_name, file_name, file_size,
 SELECT file_name, file_data, content_type, file_size
 FROM file_attachments
 WHERE change_control_id = $1 AND field_name = $2;
+
+-- name: FileAttachmentExists :one
+SELECT EXISTS(
+    SELECT 1 FROM file_attachments
+    WHERE change_control_id = $1 AND field_name = $2
+);

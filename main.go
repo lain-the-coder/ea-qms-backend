@@ -115,6 +115,8 @@ func main() {
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerCancelChangeControl)))
 	mux.Handle("POST /api/changecontrols/{ccID}/decision",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerImplementationDecision)))
+	mux.Handle("POST /api/changecontrols/{ccID}/submit-final",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSubmitForFinalApproval)))
 
 	// file attachment routes
 	mux.Handle("POST /api/changecontrols/{ccID}/files/{fieldName}",
