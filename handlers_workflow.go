@@ -1386,3 +1386,69 @@ func (cfg *apiConfig) HandlerFinalDecision(w http.ResponseWriter, r *http.Reques
 	log.Info("notification pending", "type", notifType, "cc_id", ccID, "recipient_id", cc.ChangeOwnerID)
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }
+
+// SignatureItem is one row of the signature history panel. signer_name is the
+// snapshot captured at signing (BR-8.8.5), not a live join — it records who
+// signed at the time, even if that user is later renamed or deactivated.
+type SignatureItem struct {
+	Transition string    `json:"transition"`
+	Meaning    string    `json:"meaning"`
+	SignerName string    `json:"signer_name"`
+	SignedOn   time.Time `json:"signed_on"`
+}
+
+type ListSignaturesResponse struct {
+	Signatures []SignatureItem `json:"signatures"`
+}
+
+// HandlerListSignatures returns the complete e-signature history for a change
+// control, oldest first. Authenticated, all roles — the signature trail is what
+// an auditor reads. Two reads, no writes, no transaction.
+func (cfg *apiConfig) HandlerListSignatures(w http.ResponseWriter, r *http.Request, _ database.User) {
+	log := logging.LoggerFrom(r.Context())
+	// extract and validate path parameter
+	ccIDRawStr := r.PathValue("ccID")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("signature history retrieval failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// resolve the business key to the UUID that esignatures references. Done as
+	// a separate lookup rather than a join so that a missing CC is a 404 while a
+	// CC with no signatures yet is a legitimate empty list.
+	id, err := cfg.db.GetChangeControlIDByCcID(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("signature history retrieval failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("signature history retrieval failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// no ErrNoRows branch here: this is a :many query, so zero rows is an empty
+	// slice rather than an error — and an empty history is a valid answer, since
+	// T1 (record creation) requires no signature.
+	rows, err := cfg.db.ListSignaturesForChangeControl(r.Context(), id)
+	if err != nil {
+		log.Error("signature history retrieval failed", "reason", "signature list query failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// make(..., 0, len) so a CC with no signatures marshals as [] and not null
+	signatures := make([]SignatureItem, 0, len(rows))
+	for _, row := range rows {
+		signatures = append(signatures, SignatureItem{
+			Transition: row.Transition,
+			Meaning:    row.Meaning,
+			SignerName: row.SignerName,
+			SignedOn:   row.SignedOn,
+		})
+	}
+	log.Info("signature history retrieved", "cc_id", ccID, "count", len(signatures))
+	respondWithJSON(w, http.StatusOK, ListSignaturesResponse{
+		Signatures: signatures,
+	})
+}

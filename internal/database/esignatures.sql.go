@@ -38,3 +38,45 @@ func (q *Queries) InsertESignature(ctx context.Context, arg InsertESignaturePara
 	)
 	return err
 }
+
+const listSignaturesForChangeControl = `-- name: ListSignaturesForChangeControl :many
+SELECT transition, meaning, signer_name, signed_on
+FROM esignatures
+WHERE change_control_id = $1
+ORDER BY signed_on ASC
+`
+
+type ListSignaturesForChangeControlRow struct {
+	Transition string
+	Meaning    string
+	SignerName string
+	SignedOn   time.Time
+}
+
+func (q *Queries) ListSignaturesForChangeControl(ctx context.Context, changeControlID uuid.UUID) ([]ListSignaturesForChangeControlRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSignaturesForChangeControl, changeControlID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSignaturesForChangeControlRow
+	for rows.Next() {
+		var i ListSignaturesForChangeControlRow
+		if err := rows.Scan(
+			&i.Transition,
+			&i.Meaning,
+			&i.SignerName,
+			&i.SignedOn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
