@@ -8195,7 +8195,65 @@
     },
     {
       "name": "Signatures",
-      "item": []
+      "item": [
+        {
+          "name": "Get Signatures",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/changecontrols/CC-005/signatures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "changecontrols",
+                "CC-005",
+                "signatures"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Get Signatures",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/changecontrols/CC-005/signatures",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "changecontrols",
+                    "CC-005",
+                    "signatures"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Sun, 16 Aug 2026 14:14:57 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "1167"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"signatures\": [\n    {\n      \"transition\": \"T2\",\n      \"meaning\": \"Submitted for Implementation Approval\",\n      \"signer_name\": \"Default CC Owner\",\n      \"signed_on\": \"2026-08-12T16:30:04.56841+04:00\"\n    },\n    {\n      \"transition\": \"T5\",\n      \"meaning\": \"Rejected - Implementation Approval\",\n      \"signer_name\": \"Default Approver\",\n      \"signed_on\": \"2026-08-12T16:31:32.862131+04:00\"\n    },\n    {\n      \"transition\": \"T2\",\n      \"meaning\": \"Submitted for Implementation Approval\",\n      \"signer_name\": \"Default CC Owner\",\n      \"signed_on\": \"2026-08-12T16:32:27.339698+04:00\"\n    },\n    {\n      \"transition\": \"T4\",\n      \"meaning\": \"Approved - Implementation Approval\",\n      \"signer_name\": \"Default Approver\",\n      \"signed_on\": \"2026-08-12T16:32:51.701792+04:00\"\n    },\n    {\n      \"transition\": \"T6\",\n      \"meaning\": \"Submitted for Final Approval\",\n      \"signer_name\": \"Default CC Owner\",\n      \"signed_on\": \"2026-08-15T22:54:45.954338+04:00\"\n    },\n    {\n      \"transition\": \"T8\",\n      \"meaning\": \"Rejected - Final Approval\",\n      \"signer_name\": \"Default Approver\",\n      \"signed_on\": \"2026-08-16T13:13:48.867795+04:00\"\n    },\n    {\n      \"transition\": \"T6\",\n      \"meaning\": \"Submitted for Final Approval\",\n      \"signer_name\": \"Default CC Owner\",\n      \"signed_on\": \"2026-08-16T13:24:49.241059+04:00\"\n    },\n    {\n      \"transition\": \"T7\",\n      \"meaning\": \"Approved - Final Approval\",\n      \"signer_name\": \"Default Approver\",\n      \"signed_on\": \"2026-08-16T13:25:56.350896+04:00\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
     }
   ],
   "auth": {
