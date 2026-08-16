@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 30 — **dashboard** · **22 of 23 — one endpoint left**
-- **Next task:** checkpoint 31 — **signature history** (endpoint 22), the last one
+- **Last checkpoint:** 31 — **signature history** · **23 of 23 — ALL ENDPOINTS BUILT**
+- **Next task:** README, coding-approach doc, then the post-endpoint list (extraction, doc amendments, deferred flags)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -29,7 +29,8 @@ guardrail docs carry the substance and are always attached.
 | API — Group 5 Workflow (15–19)      | ✅ Complete — **all 8 transitions**               |
 | API — Group 6 Files (20–21)         | ✅ Complete                                       |
 | API — Group 4 Dashboard (14)        | ✅ Complete                                       |
-| API — Group 7 Signatures (22)       | ⬜ **Last endpoint**                              |
+| API — Group 7 Signatures (22)       | ✅ Complete                                       |
+| **All 23 endpoints**                | ✅ **Built and verified**                         |
 
 ---
 
@@ -1555,48 +1556,95 @@ both. Test 12 returned CC-001 tagged `Pending Final Approval` **alongside** CC-0
 
 ---
 
-## Next
+### ✅ Checkpoint 31 — **signature history** · `GET /api/changecontrols/{ccID}/signatures` (endpoint 22 of 23) · **ALL ENDPOINTS BUILT**
 
-### ⬜ Checkpoint 31 — **signature history** (endpoint 22) — the last one
+The smallest endpoint in the project, and the last. **Authenticated, all roles** — the
+signature trail is what an auditor reads, so it is gated by neither ownership nor state.
 
-`GET /api/changecontrols/{ccID}/signatures` — the signature history panel. **The smallest
-endpoint in the project**, and the last one.
+**Four columns:** `transition`, `meaning`, `signer_name`, `signed_on`. `signer_id` and `id` are
+omitted — `signer_name` is the **snapshot captured at signing** (BR-8.8.5), which is what
+belongs in an audit view; the id would only serve a profile page that does not exist in Phase 1.
 
-Read `esignatures` for a CC, ordered by `signed_on`. Authenticated, all roles (the trail is
-what an auditor reads). No transaction, no writes.
+**`ORDER BY signed_on ASC`** — the only ascending sort in the project. A signature trail reads
+as a **chronology**, not a feed. **No `LIMIT`**: a complete audit history is never truncated.
 
-**CC-005 has eight rows** spanning both gates and two rejections, so there is a real history to
-display:
+**Two queries, reusing `GetChangeControlIDByCcID`.** A join would be one round trip but could
+not distinguish "CC does not exist" from "no signatures yet" — and unlike the file case, **an
+empty history is a legitimate answer**, since T1 requires no signature. So an unknown CC is
+**404** and a CC in `Initiated` is **200 with `[]`**.
 
-```
-T2  Submitted for Implementation Approval  Default CC Owner
-T5  Rejected - Implementation Approval     Default Approver
-T2  Submitted for Implementation Approval  Default CC Owner
-T4  Approved - Implementation Approval     Default Approver
-T6  Submitted for Final Approval           Default CC Owner
-T8  Rejected - Final Approval              Default Approver
-T6  Submitted for Final Approval           Default CC Owner
-T7  Approved - Final Approval               Default Approver
-```
+**Deliberately NOT folded into the CC response** (decision #47), unlike the evidence metadata
+at checkpoint 26.
 
-**Decisions:** ordering (ascending reads as a chronology, descending as a feed — ascending
-seems right for a signature _history_); whether to return `signer_id` alongside `signer_name`
-(the name is the BR-8.8.5 snapshot; the id would let the frontend link to a profile that does
-not exist in Phase 1); and whether an unknown CC is a 404 or an empty array (a 404 is more
-truthful, and needs the same two-query split as the download endpoint).
+| Check                                                                                | Verified |
+| ------------------------------------------------------------------------------------ | -------- |
+| **CC-005: eight signatures in chronological order** — T2, T5, T2, T4, T6, T8, T6, T7 | ✅       |
+| Alternating **CC Owner** and **Approver** across both gates and two rejections       | ✅       |
+| A CC in `Initiated` → 200 with `[]`, not 404, not `null`                             | ✅       |
+| Unknown CC → 404 · all roles → 200 · no token → 401                                  | ✅       |
+
+**That eight-row chain is the project's output.** A change control submitted, rejected at the
+implementation gate, resubmitted, approved, implemented, rejected at the final gate, reworked
+and closed — every step attested by the right person, readable end to end **without a single
+join**, because `signer_name` was snapshotted at signing rather than resolved later.
 
 ---
 
-## ⬜ After the endpoints
+## 🏁 All 23 endpoints built
 
-1. **Helper extraction** (decision #39) — `verifySignature` is at **five** verbatim copies
-   across T2, T3, T4/T5, T6 and T7/T8. Deferred deliberately; the repetition is now observed
-   five times over rather than predicted
-2. **Guardrail doc amendments** — the pending table has **eleven** entries
-3. **Deferred operational flags** — log rotation (#10), timezone config (#21),
-   refresh-token cleanup (#14), `supporting_documents` (#35)
-4. **The two unverified refresh gates** (#13) — absolute expiry and inactivity timeout, both
-   testable by hand-editing a row's timestamps
+| Group                           | Endpoints                     |     |
+| ------------------------------- | ----------------------------- | --- |
+| 1 · Auth                        | 1–3                           | ✅  |
+| 2 · Users & Profile             | 4–9                           | ✅  |
+| 3 · Change Controls             | 10–13                         | ✅  |
+| 4 · Dashboard                   | 14                            | ✅  |
+| 5 · Workflow                    | 15–19 — **all 8 transitions** | ✅  |
+| 6 · Files                       | 20–21                         | ✅  |
+| 7 · Signatures                  | 22                            | ✅  |
+| — · Save implementation details | **23** (added, decision #43)  | ✅  |
+
+---
+
+## Next
+
+**The endpoints are done. What remains is not new features.**
+
+### 1. Helper extraction (decision #39)
+
+`verifySignature` is now at **five verbatim copies** — T2, T3, T4/T5, T6, T7/T8. Deferred
+deliberately at checkpoint 24 on the grounds that it went from three copies to five rather than
+three to thirty. **The repetition is now observed five times over**, so the extraction can be
+designed against real examples rather than a guess. Note the shape problem: the block writes an
+audit row _and_ responds _and_ returns — a helper cannot do all three cleanly, so it likely
+performs the checks and the audit write and returns a bool, leaving `respondWithError` at the
+call site.
+
+Second candidate: the gate sequence (path param → decode → `BeginTx` →
+`GetChangeControlForUpdate` → 404 → ownership → state → 409), which is near-identical across
+seven handlers.
+
+### 2. Guardrail doc amendments
+
+**Eleven entries** in the pending-amendments table. Until they are made, a future session
+reading the guardrails would "correct" deliberate decisions back — which is precisely what the
+table exists to prevent.
+
+### 3. Deferred operational flags
+
+Log rotation (#10) · timezone config (#21) · refresh-token cleanup (#14) ·
+`supporting_documents` (#35) · the `Fri–Sat` weekend question (#22) · CC reassignment (#16).
+None are defects; each was deferred with a recorded reason.
+
+### 4. Two unverified refresh gates (#13)
+
+Absolute expiry and inactivity timeout — both testable by hand-editing a row's `expires_at` or
+`updated_on` in psql. The only untested paths left in the project.
+
+### 5. Documentation
+
+README and a coding-approach document, capturing the patterns this file records as decisions —
+the transaction rules, the audit scope, the validation split, the `authedHandler` compile-time
+guarantee.
 
 ---
 
@@ -1718,6 +1766,7 @@ Settled in working sessions and binding. They exist nowhere else.
 | 44  | **`actual_implementation_date` accepts any date at save; T6 rejects a future one**                                                                                                                                                                                                                         | The field reference says _"retrospective — no minimum lead-time rule"_, which speaks to the _other_ direction and says nothing about future dates — so this fills a gap rather than overriding, and needs a doc amendment. **Enforcing it at save would block a legitimate draft:** a user saving on Monday for work scheduled Wednesday could not record the date they are about to reach. Same split as T2's business-day rules — save validates **format**, transitions validate **business rules**. It inherits flag #21 (computed in UTC, so a day behind between midnight and 04:00 local)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 45  | **The dashboard is one endpoint returning four blocks, including a recent-activity block that no guardrail doc specifies**                                                                                                                                                                                 | The BRD describes two sections and the API plan three blocks, but **recent activity appears in all three prototypes** with no backing anywhere. **Rejected: having the frontend call `GET /changecontrols?limit=5`** for it — that already exists and sorts correctly, but it means two round trips on the first page after login, a staged render, and a payload carrying four fields the card does not display. **The decisive argument is consistency:** two calls can disagree if a CC transitions between them, so the overview count and the activity list would describe different moments. One handler, one instant. Needs a doc amendment                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 46  | **`idx_cc_last_updated_on` added in migration 007, deviating from DB §5.2's six-index list**                                                                                                                                                                                                               | **Five queries sort by `last_updated_on DESC` and none had an index** — `ListChangeControls`, `ListRecentActivity`, `ListPendingApprovalsForUser`, `ListDraftsForUser`. `ListRecentActivity` is the worst case: **no `WHERE` clause at all**, so Postgres would sort the whole table to return five rows. The cost is real — the column changes on _every_ save, transition and upload, so the index is maintained on every write — but B-tree maintenance is microseconds against argon2id's ~200 ms, and reads vastly outnumber writes here. Note the contrast with **`idx_cc_created_on`**, which came from the doc's list before the queries existed and is currently used only by the two optional date filters: an index specified ahead of its queries versus one added because five real queries needed it                                                                                                                                                                                                                                                      |
+| 47  | **Signature history is a separate endpoint, not folded into the CC response** — unlike the evidence metadata (decision #42)                                                                                                                                                                                | **The rule: fold in what the page always needs and is bounded; keep separate what is unbounded or optional.** Evidence is _four columns_ the form cannot render without — it would otherwise show an empty upload box over an attached file. Signatures are a **variable-length list** that would ride along on **every CC read, every save and every transition**, for a panel that is often collapsed. The frontend can fetch both in **parallel** (one round trip's latency, not two) or defer this one until the panel opens — which it could not do if the data were baked into the first response. Same reasoning that keeps `file_data` out of every read query                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ---
 
