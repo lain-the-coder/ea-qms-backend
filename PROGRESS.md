@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 28 — **T6 submit-final** · **20 of 23**
-- **Next task:** checkpoint 29 — **T7/T8 final decision** (endpoint 19), then dashboard and signatures
+- **Last checkpoint:** 29 — **T7/T8 final decision** · **21 of 23 · Group 5 COMPLETE · all 8 transitions done**
+- **Next task:** checkpoint 30 — **dashboard** (endpoint 14), then signature history (22)
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -26,7 +26,7 @@ guardrail docs carry the substance and are always attached.
 | API — Group 1 Auth (1–3)            | ✅ Complete                                       |
 | API — Group 2 Users & Profile (4–9) | ✅ Complete                                       |
 | API — Group 3 CCs (10–13)           | ✅ Complete                                       |
-| API — Group 5 Workflow (15–19)      | 🔵 **4 / 5** — T2 ✅, T3 ✅, T4/T5 ✅, T6 ✅      |
+| API — Group 5 Workflow (15–19)      | ✅ Complete — **all 8 transitions**               |
 | API — Group 6 Files (20–21)         | ✅ Complete                                       |
 | API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                          |
 
@@ -1449,48 +1449,91 @@ signed for. Without that, evidence could change after attestation with no new si
 
 ---
 
+### ✅ Checkpoint 29 — **T7 / T8 final decision** · `POST /api/changecontrols/{ccID}/final-decision` (endpoint 19 of 23) · **Group 5 complete**
+
+`Pending Final Approval` → **`Closed`** (approve) or back to **`In Implementation`** (reject).
+**The last transition — all eight are now implemented.**
+
+Structurally T4/T5 with different constants, and two differences:
+
+- **Two decision fields, not three.** There is no `risk_level` at this gate — that belongs to
+  the implementation approval. So **four** audit rows, not five
+- **The approve path writes three extra columns** — `final_approval_by_id`,
+  `final_approval_on` and **`actual_closure_date`**, the last system-set on T7 only (BRD §8.1).
+  All three stay untouched on reject, the same asymmetry as fields 40/41 at T4/T5
+
+**A bug caught in review, worth recording because of how it would have hidden.** An early draft
+of `ApproveFinalApproval` also set `implementation_approval_status = $3` — the same parameter
+as `final_approval_status`. That column was set at T4 and the final gate has no business
+rewriting it. **It would have been invisible here**, since both happen to be `"Approved"` — and
+wrong the moment they differed.
+
+**A second one caught only by the response:** `ActualClosureDate` was omitted from the params
+struct. Go zero-fills a missing field in a **keyed struct literal**, so the pointer was nil and
+Postgres wrote NULL — no compile error, no runtime error, silently wrong. Positional arguments
+would have refused to compile with eight values for nine parameters. **Keyed literals are safer
+for ordering and weaker for omission.**
+
+**`final_approval_on` and `actual_closure_date` both take the transaction's `now`**, so they are
+byte-identical: the CC closed at the moment it was approved, and there is no separate closure
+event.
+
+| Check                                                                                                                                     | Verified |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **CC Owner → 403** on a record in the correct state — segregation of duties at record level                                               | ✅       |
+| `"Approved"` (past tense) → 400 · blank decision/comments → 400                                                                           | ✅       |
+| Wrong password → 401 · the _owner's_ valid credentials → 401                                                                              | ✅       |
+| **T8:** → `In Implementation`, status `Not Submitted`, **all three approve-only columns null**                                            | ✅       |
+| **T7:** → `Closed`, `actual_closure_date` **and** `final_approval_on` identical, `implementation_approval_status` **intact**              | ✅       |
+| Four audit rows sharing one timestamp, `old_value` null on the first review                                                               | ✅       |
+| **`Closed` is terminal** — save draft, save implementation, upload, submit, cancel, submit-final and final-decision **all 409**           | ✅       |
+| **…while `GET` and the evidence download both return 200** — closing a record does not bury its own evidence                              | ✅       |
+| **Full round trip:** rejection → save → submit-final → approve → `Closed`                                                                 | ✅       |
+| **CC-005 now carries eight signatures** — T2, T5, T2, T4, T6, T8, **T6**, T7 (the second T6 is the rework after the final-gate rejection) | ✅       |
+
+**That eight-signature chain is the project's output in miniature:** a change control submitted,
+rejected at the implementation gate, resubmitted, approved, implemented, rejected at the final
+gate, reworked and finally closed — every step attested, every state change audited, and the
+overwritten decisions surviving only in the trail.
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 29 — **T7 / T8 final decision** (endpoint 19)
+### ⬜ Checkpoint 30 — **dashboard** (endpoint 14)
 
-`POST /api/changecontrols/{ccID}/final-decision` — **one endpoint, two outcomes**, and
-structurally **T4/T5 with different constants**.
+`GET /api/dashboard` — **the only remaining endpoint with no precedent.** Three aggregate
+blocks in one response, no writes, no transaction.
 
-|                | From                   | To                        | `final_approval_status` |
-| -------------- | ---------------------- | ------------------------- | ----------------------- |
-| **T7 approve** | Pending Final Approval | **`Closed`** _(terminal)_ | `Approved`              |
-| **T8 reject**  | Pending Final Approval | **`In Implementation`**   | ? — needs deciding      |
+From `dashboard-cc-owner.html`:
 
-**Assigned approver only**, same record-level check as T4/T5.
+| Block                    | Shape                                             |
+| ------------------------ | ------------------------------------------------- |
+| **Overview**             | `COUNT(*)` **grouped by state** — five stat cards |
+| **My pending approvals** | a short list, capped, no paging                   |
+| **My drafts**            | a short list, capped, no paging                   |
 
-| Field                                  | Note                                                                     |
-| -------------------------------------- | ------------------------------------------------------------------------ |
-| `final_decision` (42)                  | `Approve` / `Reject` — **audited**                                       |
-| `final_comments` (43)                  | mandatory both paths — **audited**                                       |
-| `final_approval_by_id` / `_on` (44/45) | **approve only**, never on reject — same asymmetry as 40/41              |
-| **`actual_closure_date` (48)**         | **system-set on T7 only** — BRD §8.1 transition table says so explicitly |
-
-**Four audit rows on approve** — `StateChanged`, two `FieldUpdated` (`final_decision`,
-`final_comments`), `SignatureCaptured`. `old_value` comes from the loaded record, so a
-re-review after a T8 rejection shows `Reject → Approve`.
-
-**Note there is no `risk_level` equivalent at this gate** — T4/T5 had three audited fields,
-T7/T8 has two.
+**Now testable properly** — six CCs across five states, including two `Closed`, so the counts
+will actually discriminate. Building it earlier would have meant testing against records all
+sitting in one or two states.
 
 **Decisions needed:**
 
-1. `final_approval_status` on **rejection** — back to `Not Submitted`, mirroring decision #34?
-2. Does `actual_closure_date` use the transaction's `now`, so it matches the audit rows and
-   the signature? (Almost certainly yes — same reasoning as
-   `implementation_approval_on` at T4)
-3. Two update queries again, since only the approve path writes `by`/`on` **and**
-   `actual_closure_date`?
+1. **Are the counts system-wide or per-user?** The prototype's cards read as system-wide
+   totals; the two lists are explicitly "mine". Confirm against the BRD
+2. **How many items per list**, and is it capped in SQL or unbounded? A dashboard card showing
+   fifty drafts would be wrong
+3. **Does the response reuse `ChangeControlSummary`** for the two lists, or a smaller shape
+   still? The cards show fewer fields than the table does
+4. **One query or three?** `COUNT(*) … GROUP BY current_state` returns _rows_, not a fixed
+   shape, so the handler must map six possible states — including **states with zero records**,
+   which the `GROUP BY` will simply omit. That is the one real trap here
 
-**`Closed` is terminal** — worth verifying afterwards that nothing transitions out, edits, or
-uploads to a closed record. **CC-005 and CC-007 are both sitting in `Pending Final Approval`**,
-so you can test a reject on one and an approve on the other.
+**Then: signature history (22)** — read `esignatures` for a CC, ordered. CC-005 has **eight**
+rows spanning both gates and two rejections, so there is a real history to display.
 
-**Then: dashboard (14) → signatures (22).**
+**After the endpoints:** helper extraction (decision #39 — `verifySignature` is at five copies),
+the nine pending doc amendments, and the deferred operational flags.
 
 ---
 
