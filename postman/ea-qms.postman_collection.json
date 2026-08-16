@@ -5503,7 +5503,131 @@
     },
     {
       "name": "Dashboard",
-      "item": []
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dashboard"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Owner",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/dashboard",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "dashboard"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Sun, 16 Aug 2026 13:42:35 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "1200"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"overview\": {\n    \"initiated\": 1,\n    \"pending_implementation_approval\": 2,\n    \"in_implementation\": 1,\n    \"pending_final_approval\": 0,\n    \"closed\": 2\n  },\n  \"pending_approvals\": [],\n  \"pending_approvals_total\": 0,\n  \"my_drafts\": [\n    {\n      \"cc_id\": \"CC-008\",\n      \"change_title\": null,\n      \"current_state\": \"Initiated\"\n    }\n  ],\n  \"my_drafts_total\": 1,\n  \"recent_activity\": [\n    {\n      \"cc_id\": \"CC-008\",\n      \"change_title\": null,\n      \"current_state\": \"Initiated\",\n      \"last_updated_on\": \"2026-08-16T17:42:28.563946+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-005\",\n      \"change_title\": \"Badge reader firmware patch\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:25:56.349453+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-007\",\n      \"change_title\": \"Server room UPS battery replacement\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:15:25.03187+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-006\",\n      \"change_title\": null,\n      \"current_state\": \"Cancelled\",\n      \"last_updated_on\": \"2026-08-12T16:33:56.770031+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-001\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"In Implementation\",\n      \"last_updated_on\": \"2026-08-12T15:30:34.244677+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "Approver",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/dashboard",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "dashboard"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Sun, 16 Aug 2026 13:39:12 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "1438"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"overview\": {\n    \"initiated\": 0,\n    \"pending_implementation_approval\": 2,\n    \"in_implementation\": 1,\n    \"pending_final_approval\": 0,\n    \"closed\": 2\n  },\n  \"pending_approvals\": [\n    {\n      \"cc_id\": \"CC-004\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"Pending Implementation Approval\"\n    },\n    {\n      \"cc_id\": \"CC-002\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"Pending Implementation Approval\"\n    }\n  ],\n  \"pending_approvals_total\": 2,\n  \"my_drafts\": [],\n  \"my_drafts_total\": 0,\n  \"recent_activity\": [\n    {\n      \"cc_id\": \"CC-005\",\n      \"change_title\": \"Badge reader firmware patch\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:25:56.349453+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-007\",\n      \"change_title\": \"Server room UPS battery replacement\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:15:25.03187+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-006\",\n      \"change_title\": null,\n      \"current_state\": \"Cancelled\",\n      \"last_updated_on\": \"2026-08-12T16:33:56.770031+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-001\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"In Implementation\",\n      \"last_updated_on\": \"2026-08-12T15:30:34.244677+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-004\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"Pending Implementation Approval\",\n      \"last_updated_on\": \"2026-08-10T15:45:02.816693+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "Viewer/Admin",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/dashboard",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "dashboard"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "content-type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "date",
+                  "value": "Sun, 16 Aug 2026 13:37:10 GMT"
+                },
+                {
+                  "key": "content-length",
+                  "value": "1191"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"overview\": {\n    \"initiated\": 0,\n    \"pending_implementation_approval\": 2,\n    \"in_implementation\": 1,\n    \"pending_final_approval\": 0,\n    \"closed\": 2\n  },\n  \"pending_approvals\": [],\n  \"pending_approvals_total\": 0,\n  \"my_drafts\": [],\n  \"my_drafts_total\": 0,\n  \"recent_activity\": [\n    {\n      \"cc_id\": \"CC-005\",\n      \"change_title\": \"Badge reader firmware patch\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:25:56.349453+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-007\",\n      \"change_title\": \"Server room UPS battery replacement\",\n      \"current_state\": \"Closed\",\n      \"last_updated_on\": \"2026-08-16T13:15:25.03187+04:00\",\n      \"last_updated_by_name\": \"Default Approver\"\n    },\n    {\n      \"cc_id\": \"CC-006\",\n      \"change_title\": null,\n      \"current_state\": \"Cancelled\",\n      \"last_updated_on\": \"2026-08-12T16:33:56.770031+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-001\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"In Implementation\",\n      \"last_updated_on\": \"2026-08-12T15:30:34.244677+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    },\n    {\n      \"cc_id\": \"CC-004\",\n      \"change_title\": \"Kiosk receipt printer firmware update\",\n      \"current_state\": \"Pending Implementation Approval\",\n      \"last_updated_on\": \"2026-08-10T15:45:02.816693+04:00\",\n      \"last_updated_by_name\": \"Default CC Owner\"\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "Workflow",
