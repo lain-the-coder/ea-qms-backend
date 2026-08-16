@@ -138,6 +138,8 @@ const (
 	notifyCCApproved                = "cc_approved"                  // T4 → owner
 	notifyCCRejected                = "cc_rejected"                  // T5 → owner
 	notifySubmittedForFinalApproval = "submitted_for_final_approval" // T6 -> approver
+	notifyCCClosed                  = "cc_closed"                    // T7 -> owner
+	notifyCCFinalRejected           = "cc_final_rejected"            // T8 -> owner
 )
 
 // File upload — BR-8.2.14 (10 MB), BR-8.2.13 narrowed to PDF only

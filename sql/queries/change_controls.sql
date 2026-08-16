@@ -236,3 +236,28 @@ SET current_state = $2,
     last_updated_on = NOW()
 WHERE cc_id = $1
 RETURNING *;
+
+-- name: RejectFinalApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    final_approval_status = $3,
+    final_decision = $4,
+    final_comments = $5,
+    last_updated_by_id = $6,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;
+
+-- name: ApproveFinalApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    final_approval_status = $3,
+    final_decision = $4,
+    final_comments = $5,
+    final_approval_by_id = $6,
+    final_approval_on = $7,
+    actual_closure_date = $8,
+    last_updated_by_id = $9,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING *;

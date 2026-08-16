@@ -12,6 +12,101 @@ import (
 	"github.com/google/uuid"
 )
 
+const approveFinalApproval = `-- name: ApproveFinalApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    final_approval_status = $3,
+    final_decision = $4,
+    final_comments = $5,
+    final_approval_by_id = $6,
+    final_approval_on = $7,
+    actual_closure_date = $8,
+    last_updated_by_id = $9,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING id, cc_number, cc_id, current_state, change_owner_id, last_updated_by_id, created_on, last_updated_on, change_title, change_description, change_type, change_category, department_function, affected_systems_modules, proposed_implementation_date, target_closure_date, implementation_window_start, implementation_window_end, reason_for_change, business_impact, expected_downtime, requires_testing, requires_training, risk_rationale, key_risks_mitigations, high_level_implementation_plan, validation_approach, success_criteria, rollback_backout_plan, actual_implementation_date, post_implementation_issues, implementation_summary, deviations_from_plan, validation_performed, assigned_approver_id, comments_for_approver, decision, risk_level, decision_comments, implementation_approval_by_id, implementation_approval_on, final_decision, final_comments, final_approval_by_id, final_approval_on, implementation_approval_status, final_approval_status, actual_closure_date, comments, cancellation_reason
+`
+
+type ApproveFinalApprovalParams struct {
+	CcID                string
+	CurrentState        string
+	FinalApprovalStatus string
+	FinalDecision       *string
+	FinalComments       *string
+	FinalApprovalByID   *uuid.UUID
+	FinalApprovalOn     *time.Time
+	ActualClosureDate   *time.Time
+	LastUpdatedByID     uuid.UUID
+}
+
+func (q *Queries) ApproveFinalApproval(ctx context.Context, arg ApproveFinalApprovalParams) (ChangeControl, error) {
+	row := q.db.QueryRowContext(ctx, approveFinalApproval,
+		arg.CcID,
+		arg.CurrentState,
+		arg.FinalApprovalStatus,
+		arg.FinalDecision,
+		arg.FinalComments,
+		arg.FinalApprovalByID,
+		arg.FinalApprovalOn,
+		arg.ActualClosureDate,
+		arg.LastUpdatedByID,
+	)
+	var i ChangeControl
+	err := row.Scan(
+		&i.ID,
+		&i.CcNumber,
+		&i.CcID,
+		&i.CurrentState,
+		&i.ChangeOwnerID,
+		&i.LastUpdatedByID,
+		&i.CreatedOn,
+		&i.LastUpdatedOn,
+		&i.ChangeTitle,
+		&i.ChangeDescription,
+		&i.ChangeType,
+		&i.ChangeCategory,
+		&i.DepartmentFunction,
+		&i.AffectedSystemsModules,
+		&i.ProposedImplementationDate,
+		&i.TargetClosureDate,
+		&i.ImplementationWindowStart,
+		&i.ImplementationWindowEnd,
+		&i.ReasonForChange,
+		&i.BusinessImpact,
+		&i.ExpectedDowntime,
+		&i.RequiresTesting,
+		&i.RequiresTraining,
+		&i.RiskRationale,
+		&i.KeyRisksMitigations,
+		&i.HighLevelImplementationPlan,
+		&i.ValidationApproach,
+		&i.SuccessCriteria,
+		&i.RollbackBackoutPlan,
+		&i.ActualImplementationDate,
+		&i.PostImplementationIssues,
+		&i.ImplementationSummary,
+		&i.DeviationsFromPlan,
+		&i.ValidationPerformed,
+		&i.AssignedApproverID,
+		&i.CommentsForApprover,
+		&i.Decision,
+		&i.RiskLevel,
+		&i.DecisionComments,
+		&i.ImplementationApprovalByID,
+		&i.ImplementationApprovalOn,
+		&i.FinalDecision,
+		&i.FinalComments,
+		&i.FinalApprovalByID,
+		&i.FinalApprovalOn,
+		&i.ImplementationApprovalStatus,
+		&i.FinalApprovalStatus,
+		&i.ActualClosureDate,
+		&i.Comments,
+		&i.CancellationReason,
+	)
+	return i, err
+}
+
 const approveImplementation = `-- name: ApproveImplementation :one
 UPDATE change_controls
 SET current_state = $2,
@@ -635,6 +730,92 @@ func (q *Queries) ListChangeControls(ctx context.Context, arg ListChangeControls
 		return nil, err
 	}
 	return items, nil
+}
+
+const rejectFinalApproval = `-- name: RejectFinalApproval :one
+UPDATE change_controls
+SET current_state = $2,
+    final_approval_status = $3,
+    final_decision = $4,
+    final_comments = $5,
+    last_updated_by_id = $6,
+    last_updated_on = NOW()
+WHERE cc_id = $1
+RETURNING id, cc_number, cc_id, current_state, change_owner_id, last_updated_by_id, created_on, last_updated_on, change_title, change_description, change_type, change_category, department_function, affected_systems_modules, proposed_implementation_date, target_closure_date, implementation_window_start, implementation_window_end, reason_for_change, business_impact, expected_downtime, requires_testing, requires_training, risk_rationale, key_risks_mitigations, high_level_implementation_plan, validation_approach, success_criteria, rollback_backout_plan, actual_implementation_date, post_implementation_issues, implementation_summary, deviations_from_plan, validation_performed, assigned_approver_id, comments_for_approver, decision, risk_level, decision_comments, implementation_approval_by_id, implementation_approval_on, final_decision, final_comments, final_approval_by_id, final_approval_on, implementation_approval_status, final_approval_status, actual_closure_date, comments, cancellation_reason
+`
+
+type RejectFinalApprovalParams struct {
+	CcID                string
+	CurrentState        string
+	FinalApprovalStatus string
+	FinalDecision       *string
+	FinalComments       *string
+	LastUpdatedByID     uuid.UUID
+}
+
+func (q *Queries) RejectFinalApproval(ctx context.Context, arg RejectFinalApprovalParams) (ChangeControl, error) {
+	row := q.db.QueryRowContext(ctx, rejectFinalApproval,
+		arg.CcID,
+		arg.CurrentState,
+		arg.FinalApprovalStatus,
+		arg.FinalDecision,
+		arg.FinalComments,
+		arg.LastUpdatedByID,
+	)
+	var i ChangeControl
+	err := row.Scan(
+		&i.ID,
+		&i.CcNumber,
+		&i.CcID,
+		&i.CurrentState,
+		&i.ChangeOwnerID,
+		&i.LastUpdatedByID,
+		&i.CreatedOn,
+		&i.LastUpdatedOn,
+		&i.ChangeTitle,
+		&i.ChangeDescription,
+		&i.ChangeType,
+		&i.ChangeCategory,
+		&i.DepartmentFunction,
+		&i.AffectedSystemsModules,
+		&i.ProposedImplementationDate,
+		&i.TargetClosureDate,
+		&i.ImplementationWindowStart,
+		&i.ImplementationWindowEnd,
+		&i.ReasonForChange,
+		&i.BusinessImpact,
+		&i.ExpectedDowntime,
+		&i.RequiresTesting,
+		&i.RequiresTraining,
+		&i.RiskRationale,
+		&i.KeyRisksMitigations,
+		&i.HighLevelImplementationPlan,
+		&i.ValidationApproach,
+		&i.SuccessCriteria,
+		&i.RollbackBackoutPlan,
+		&i.ActualImplementationDate,
+		&i.PostImplementationIssues,
+		&i.ImplementationSummary,
+		&i.DeviationsFromPlan,
+		&i.ValidationPerformed,
+		&i.AssignedApproverID,
+		&i.CommentsForApprover,
+		&i.Decision,
+		&i.RiskLevel,
+		&i.DecisionComments,
+		&i.ImplementationApprovalByID,
+		&i.ImplementationApprovalOn,
+		&i.FinalDecision,
+		&i.FinalComments,
+		&i.FinalApprovalByID,
+		&i.FinalApprovalOn,
+		&i.ImplementationApprovalStatus,
+		&i.FinalApprovalStatus,
+		&i.ActualClosureDate,
+		&i.Comments,
+		&i.CancellationReason,
+	)
+	return i, err
 }
 
 const rejectImplementation = `-- name: RejectImplementation :one

@@ -1094,3 +1094,295 @@ func (cfg *apiConfig) HandlerSubmitForFinalApproval(w http.ResponseWriter, r *ht
 		"cc_id", ccID, "recipient_id", cc.AssignedApproverID)
 	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }
+
+func (cfg *apiConfig) HandlerFinalDecision(w http.ResponseWriter, r *http.Request, approver database.User) {
+	type FinalDecisionRequest struct {
+		FinalDecision string `json:"final_decision"`
+		FinalComments string `json:"final_comments"`
+		Email         string `json:"email"`
+		Password      string `json:"password"`
+	}
+	log := logging.LoggerFrom(r.Context())
+	// extract and validate path parameter
+	ccIDRawStr := r.PathValue("ccID")
+	ccID := strings.TrimSpace(ccIDRawStr)
+	if ccID == "" {
+		log.Warn("final decision failed", "reason", "CC-ID blank")
+		respondWithError(w, "CC-ID cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// decode request body
+	reqBody := FinalDecisionRequest{}
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		log.Warn("final decision failed", "reason", "malformed request body", "error", err)
+		respondWithError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	// request validation
+	// decision field validation
+	reqBody.FinalDecision = strings.TrimSpace(reqBody.FinalDecision)
+	if reqBody.FinalDecision == "" {
+		log.Warn("final decision failed", "reason", "final decision blank")
+		respondWithError(w, "Final Decision cannot be blank", http.StatusBadRequest)
+		return
+	}
+	switch reqBody.FinalDecision {
+	case decisionApprove, decisionReject:
+	default:
+		log.Warn("final decision failed", "reason", "invalid final decision parameter value", "decision", reqBody.FinalDecision)
+		respondWithError(w, "Invalid final decision", http.StatusBadRequest)
+		return
+	}
+	// final comments field validation
+	reqBody.FinalComments = strings.TrimSpace(reqBody.FinalComments)
+	if reqBody.FinalComments == "" {
+		log.Warn("final decision failed", "reason", "final comments blank")
+		respondWithError(w, "Final Comments cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// max length — 2000 runes
+	if len([]rune(reqBody.FinalComments)) > 2000 {
+		log.Warn("final decision failed", "reason", "Final Comments must be 2000 characters or fewer", "cc_id", ccID)
+		respondWithError(w, "Final Comments must be 2000 characters or fewer", http.StatusBadRequest)
+		return
+	}
+	// email validation
+	reqBody.Email = strings.TrimSpace(reqBody.Email)
+	if reqBody.Email == "" {
+		log.Warn("final decision failed", "reason", "email blank")
+		respondWithError(w, "Email cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// password validation
+	if reqBody.Password == "" {
+		log.Warn("final decision failed", "reason", "password blank")
+		respondWithError(w, "Password cannot be blank", http.StatusBadRequest)
+		return
+	}
+	// open transaction
+	tx, err := cfg.rawDB.BeginTx(r.Context(), nil)
+	if err != nil {
+		log.Error("final decision failed", "reason", "could not begin transaction", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+	qtx := cfg.db.WithTx(tx)
+	// retrieve cc details with intent of updating
+	cc, err := qtx.GetChangeControlForUpdate(r.Context(), ccID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Warn("final decision failed", "reason", "cc not found", "cc_id", ccID)
+			respondWithError(w, "Change Control not found", http.StatusNotFound)
+			return
+		}
+		log.Error("final decision failed", "reason", "cc lookup failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// approver ownership check
+	// nil check first since Assigned Approver field is nullable unlike Change Owner field
+	if cc.AssignedApproverID == nil || *cc.AssignedApproverID != approver.ID {
+		log.Warn("final decision failed", "reason", "user is not approver of cc", "cc_id", ccID)
+		respondWithError(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	// state check
+	if cc.CurrentState != statePendingFinalApproval {
+		log.Warn("final decision failed", "reason",
+			"final approval only allowed from Pending Final Approval state", "cc_id", ccID)
+		respondWithError(w, "Final Approval only allowed from Pending Final Approval state of CC",
+			http.StatusConflict)
+		return
+	}
+	// use same timestamp for audit entry and e-sig entry
+	now := time.Now().UTC()
+	// e-sig credentials email check
+	if !strings.EqualFold(reqBody.Email, approver.Email) {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   approver.ID,
+			PerformedByName: approver.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("final decision failed", "reason", "email does not match")
+		if err != nil {
+			log.Error("final decision failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// e-sig credentials password check
+	match, err := auth.CheckPasswordHash(reqBody.Password, approver.HashedPassword)
+	if err != nil {
+		log.Error("final decision failed", "reason", "password verification error", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	if !match {
+		// written with cfg.db, NOT qtx — this must survive the rollback
+		err = cfg.db.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+			EntityType:      entityChangeControl,
+			EntityID:        cc.ID,
+			ActionType:      actionSignatureFailed,
+			PerformedByID:   approver.ID,
+			PerformedByName: approver.FullName,
+			CreatedOn:       now,
+		})
+		log.Warn("final decision failed", "reason", "password mismatch")
+		if err != nil {
+			log.Error("final decision failed", "reason", "audit entry for signature failure failed", "error", err)
+		}
+		respondWithError(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	// setting values based on approval/reject branches
+	meaning := meaningApprovedFinalApproval
+	newState := stateClosed
+	finalApprovalStatus := approvalApproved
+	transition := transitionT7
+	notifType := notifyCCClosed
+	if reqBody.FinalDecision == decisionReject {
+		meaning = meaningRejectedFinalApproval
+		newState = stateInImplementation
+		finalApprovalStatus = approvalNotSubmitted
+		transition = transitionT8
+		notifType = notifyCCFinalRejected
+	}
+	// update CC branching based on decision - approve/reject
+	if reqBody.FinalDecision == decisionApprove {
+		_, err := qtx.ApproveFinalApproval(r.Context(), database.ApproveFinalApprovalParams{
+			CcID:                cc.CcID,
+			CurrentState:        newState,
+			FinalApprovalStatus: finalApprovalStatus,
+			FinalDecision:       strPtr(reqBody.FinalDecision),
+			FinalComments:       strPtr(reqBody.FinalComments),
+			FinalApprovalByID:   &approver.ID,
+			FinalApprovalOn:     &now,
+			ActualClosureDate:   &now,
+			LastUpdatedByID:     approver.ID,
+		})
+		if err != nil {
+			log.Error("final decision failed", "reason", "cc final approve update failed", "cc_id", ccID, "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		_, err := qtx.RejectFinalApproval(r.Context(), database.RejectFinalApprovalParams{
+			CcID:                cc.CcID,
+			CurrentState:        newState,
+			FinalApprovalStatus: finalApprovalStatus,
+			FinalDecision:       strPtr(reqBody.FinalDecision),
+			FinalComments:       strPtr(reqBody.FinalComments),
+			LastUpdatedByID:     approver.ID,
+		})
+		if err != nil {
+			log.Error("final decision failed", "reason", "cc final reject update failed", "cc_id", ccID, "error", err)
+			respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	}
+	// e-sig table entry
+	err = qtx.InsertESignature(r.Context(), database.InsertESignatureParams{
+		ChangeControlID: cc.ID,
+		SignerID:        approver.ID,
+		SignerName:      approver.FullName,
+		Transition:      transition,
+		Meaning:         meaning,
+		SignedOn:        now,
+	})
+	if err != nil {
+		log.Error("final decision failed", "reason", "e-sig row insertion failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for state change
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionStateChanged,
+		FieldName:       strPtr("current_state"),
+		OldValue:        strPtr(statePendingFinalApproval),
+		NewValue:        strPtr(newState),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("final decision failed", "reason",
+			"audit entry for cc state change failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for final decision and final comments fields
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("final_decision"),
+		OldValue:        cc.FinalDecision,
+		NewValue:        strPtr(reqBody.FinalDecision),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("final decision failed", "reason", "audit entry for final decision field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionFieldUpdated,
+		FieldName:       strPtr("final_comments"),
+		OldValue:        cc.FinalComments,
+		NewValue:        strPtr(reqBody.FinalComments),
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("final decision failed", "reason", "audit entry for final comments field failed",
+			"cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// audit entry for successful signature
+	err = qtx.InsertAuditLog(r.Context(), database.InsertAuditLogParams{
+		EntityType:      entityChangeControl,
+		EntityID:        cc.ID,
+		ActionType:      actionSignatureCaptured,
+		PerformedByID:   approver.ID,
+		PerformedByName: approver.FullName,
+		CreatedOn:       now,
+	})
+	if err != nil {
+		log.Error("final decision failed", "reason", "audit entry for signature capture failed", "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// fetch for response
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
+	if err != nil {
+		log.Error("final decision failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	// commit
+	err = tx.Commit()
+	if err != nil {
+		log.Error("final decision failed", "reason", "db commit failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+	log.Info("cc final approval decision recorded", "cc_id", ccID, "new_state", newState, "decision", reqBody.FinalDecision)
+	// email notification deferred for first release (FR-6.4.1 — no SMTP in Phase 1)
+	log.Info("notification pending", "type", notifType, "cc_id", ccID, "recipient_id", cc.ChangeOwnerID)
+	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
+}
