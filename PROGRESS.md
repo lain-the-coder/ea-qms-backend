@@ -5,8 +5,8 @@ that are not recorded in any guardrail document, and open flags. Nothing else �
 guardrail docs carry the substance and are always attached.
 
 - **Repo:** `github.com/lain-the-coder/ea-qms-backend`
-- **Last checkpoint:** 29 — **T7/T8 final decision** · **21 of 23 · Group 5 COMPLETE · all 8 transitions done**
-- **Next task:** checkpoint 30 — **dashboard** (endpoint 14), then signature history (22)
+- **Last checkpoint:** 30 — **dashboard** · **22 of 23 — one endpoint left**
+- **Next task:** checkpoint 31 — **signature history** (endpoint 22), the last one
 - **Schema version:** 6 · all six tables built and verified
 - **Review loop:** paste code in chat for review _before_ committing — review precedes
   commit, never follows it. (The repo is public and can be cloned if ever useful to look
@@ -28,7 +28,8 @@ guardrail docs carry the substance and are always attached.
 | API — Group 3 CCs (10–13)           | ✅ Complete                                       |
 | API — Group 5 Workflow (15–19)      | ✅ Complete — **all 8 transitions**               |
 | API — Group 6 Files (20–21)         | ✅ Complete                                       |
-| API — Groups 4, 7 (14, 22)          | ⬜ Dashboard, signatures                          |
+| API — Group 4 Dashboard (14)        | ✅ Complete                                       |
+| API — Group 7 Signatures (22)       | ⬜ **Last endpoint**                              |
 
 ---
 
@@ -1498,42 +1499,104 @@ overwritten decisions surviving only in the trail.
 
 ---
 
+### ✅ Checkpoint 30 — **dashboard** · `GET /api/dashboard` (endpoint 14 of 23)
+
+**Authenticated, all roles.** §9.5.2 shows every card to every role with empty states — so the
+endpoint is **role-blind** and only the _content_ differs, because a Viewer owns no drafts and
+is assigned no approvals. Verified: `overview` and `recent_activity` came back **byte-identical**
+across CC Owner, Approver, Admin and Viewer.
+
+**Four blocks, one response** (decision #45). The BRD specifies two sections and the API plan
+three blocks; **recent activity appears in all three prototypes with no backing anywhere**.
+
+**`migrations/007` — `idx_cc_last_updated_on (last_updated_on DESC)`.** **Five** queries sort by
+this column and none had an index. `ListRecentActivity` benefits most — **no `WHERE` clause at
+all**, so without it Postgres sorts the entire table to return five rows. Cost: one index
+maintained on every write, and `last_updated_on` changes on _every_ save, transition and upload
+— but B-tree maintenance is microseconds against argon2id's 200 ms, and reads vastly outnumber
+writes. Verified up, down and up. **Deviates from DB §5.2's six-index list.**
+
+**Six queries, all reads, no transaction.** Count and list are **separate queries per card**,
+because each shows a **total** alongside a **capped list** — verified with three drafts
+displaying `3` over two rows.
+
+**The response maps one-to-one onto the page:**
+
+| JSON                      | Screen                                    |
+| ------------------------- | ----------------------------------------- |
+| `overview` (5 counts)     | the five clickable stat cards             |
+| `pending_approvals[]`     | Action Required, left card rows           |
+| `pending_approvals_total` | its headline number _and_ its empty state |
+| `my_drafts[]`             | Action Required, right card rows          |
+| `my_drafts_total`         | its headline number _and_ its empty state |
+| `recent_activity[]`       | the five-column table                     |
+
+**The one real trap — `DashboardOverview` is a fixed five-field struct, not a map.** `GROUP BY`
+returns **only states that have records**, so a state with none is simply _absent from the
+rows_. Starting the struct at zero and overwriting from the query is what guarantees all five
+cards render. Verified: `initiated: 0` and `pending_final_approval: 0` **present** in the JSON
+rather than missing.
+
+**The two-state approvals filter — deferred at checkpoint 19, delivered here.**
+`GET /changecontrols` still takes a single `state`, but this query is purpose-built and names
+both. Test 12 returned CC-001 tagged `Pending Final Approval` **alongside** CC-008 tagged
+`Pending Implementation Approval` — the mixed badges the approver prototype shows.
+
+| Check                                                                                                       | Verified |
+| ----------------------------------------------------------------------------------------------------------- | -------- |
+| All four roles: identical `overview` and `recent_activity`, differing cards only                            | ✅       |
+| Zero-count states **present as `0`**, not missing                                                           | ✅       |
+| Three drafts → **total 3, list of 2** — the cap, and why total is separate                                  | ✅       |
+| Submitting a draft moves it out of `my_drafts` **and** into the pending count in one response               | ✅       |
+| **Both gates in one approvals card** (Pending Final + Pending Implementation)                               | ✅       |
+| Recent activity reorders on every write; the joined name **follows whoever last touched it**, not the owner | ✅       |
+| `Cancelled` absent from every count but present in recent activity                                          | ✅       |
+| Final cross-check against `GROUP BY current_state` — exact match bar `Cancelled`                            | ✅       |
+
+---
+
 ## Next
 
-### ⬜ Checkpoint 30 — **dashboard** (endpoint 14)
+### ⬜ Checkpoint 31 — **signature history** (endpoint 22) — the last one
 
-`GET /api/dashboard` — **the only remaining endpoint with no precedent.** Three aggregate
-blocks in one response, no writes, no transaction.
+`GET /api/changecontrols/{ccID}/signatures` — the signature history panel. **The smallest
+endpoint in the project**, and the last one.
 
-From `dashboard-cc-owner.html`:
+Read `esignatures` for a CC, ordered by `signed_on`. Authenticated, all roles (the trail is
+what an auditor reads). No transaction, no writes.
 
-| Block                    | Shape                                             |
-| ------------------------ | ------------------------------------------------- |
-| **Overview**             | `COUNT(*)` **grouped by state** — five stat cards |
-| **My pending approvals** | a short list, capped, no paging                   |
-| **My drafts**            | a short list, capped, no paging                   |
+**CC-005 has eight rows** spanning both gates and two rejections, so there is a real history to
+display:
 
-**Now testable properly** — six CCs across five states, including two `Closed`, so the counts
-will actually discriminate. Building it earlier would have meant testing against records all
-sitting in one or two states.
+```
+T2  Submitted for Implementation Approval  Default CC Owner
+T5  Rejected - Implementation Approval     Default Approver
+T2  Submitted for Implementation Approval  Default CC Owner
+T4  Approved - Implementation Approval     Default Approver
+T6  Submitted for Final Approval           Default CC Owner
+T8  Rejected - Final Approval              Default Approver
+T6  Submitted for Final Approval           Default CC Owner
+T7  Approved - Final Approval               Default Approver
+```
 
-**Decisions needed:**
+**Decisions:** ordering (ascending reads as a chronology, descending as a feed — ascending
+seems right for a signature _history_); whether to return `signer_id` alongside `signer_name`
+(the name is the BR-8.8.5 snapshot; the id would let the frontend link to a profile that does
+not exist in Phase 1); and whether an unknown CC is a 404 or an empty array (a 404 is more
+truthful, and needs the same two-query split as the download endpoint).
 
-1. **Are the counts system-wide or per-user?** The prototype's cards read as system-wide
-   totals; the two lists are explicitly "mine". Confirm against the BRD
-2. **How many items per list**, and is it capped in SQL or unbounded? A dashboard card showing
-   fifty drafts would be wrong
-3. **Does the response reuse `ChangeControlSummary`** for the two lists, or a smaller shape
-   still? The cards show fewer fields than the table does
-4. **One query or three?** `COUNT(*) … GROUP BY current_state` returns _rows_, not a fixed
-   shape, so the handler must map six possible states — including **states with zero records**,
-   which the `GROUP BY` will simply omit. That is the one real trap here
+---
 
-**Then: signature history (22)** — read `esignatures` for a CC, ordered. CC-005 has **eight**
-rows spanning both gates and two rejections, so there is a real history to display.
+## ⬜ After the endpoints
 
-**After the endpoints:** helper extraction (decision #39 — `verifySignature` is at five copies),
-the nine pending doc amendments, and the deferred operational flags.
+1. **Helper extraction** (decision #39) — `verifySignature` is at **five** verbatim copies
+   across T2, T3, T4/T5, T6 and T7/T8. Deferred deliberately; the repetition is now observed
+   five times over rather than predicted
+2. **Guardrail doc amendments** — the pending table has **eleven** entries
+3. **Deferred operational flags** — log rotation (#10), timezone config (#21),
+   refresh-token cleanup (#14), `supporting_documents` (#35)
+4. **The two unverified refresh gates** (#13) — absolute expiry and inactivity timeout, both
+   testable by hand-editing a row's timestamps
 
 ---
 
@@ -1586,6 +1649,9 @@ Session decisions that now contradict a guardrail doc. Until amended, a future s
 | Doc                           | Change needed                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `API_ENDPOINT_PLAN.md`        | Endpoint 2: sliding window **30 min → 2 hours** (decision #15)                                                                                                                                                                                                                                                                                                                                                      |
+| DB Design **§5.2**            | Add **`idx_cc_last_updated_on (last_updated_on DESC)`** to the index list — migration 007 (decision #46)                                                                                                                                                                                                                                                                                                            |
+| `API_ENDPOINT_PLAN.md`        | Endpoint 14: the dashboard returns **four** blocks, not three — `recent_activity` is added (decision #45)                                                                                                                                                                                                                                                                                                           |
+| BRD **§9.5.2**                | Add the **Recent Activity** table to the dashboard layout; it appears in all three prototypes but only two sections are described                                                                                                                                                                                                                                                                                   |
 | `API_ENDPOINT_PLAN.md`        | Add a **23rd endpoint**, `PUT /api/changecontrols/{ccID}/implementation` — save implementation details, CC Owner, `In Implementation` only (decision #43). T6's spec correspondingly loses its field payload                                                                                                                                                                                                        |
 | `CC_Field_Reference.md`       | Field 29: add that `actual_implementation_date` **must not be in the future**, validated at T6 (decision #44). The current note covers only the absence of a lead-time rule                                                                                                                                                                                                                                         |
 | `API_ENDPOINT_PLAN.md`        | Endpoint 11: pagination is **`?limit=`/`?offset=`**, not `?page=`/`?page_size=` — one convention across the API, matching `GET /api/users`. Also add the two filters built beyond the plan's list: **`?search=`** (forced by pagination — client-side search can only see the current page) and **`?created_after=`/`?created_before=`**. Search is table filtering, not the reporting/analytics excluded by §1.3.2 |
@@ -1650,6 +1716,8 @@ Settled in working sessions and binding. They exist nowhere else.
 | 42  | **Evidence metadata is exposed via the CC response, not a separate endpoint**                                                                                                                                                                                                                              | The form must show that a file exists — otherwise it renders an empty upload box over an attachment, the Approver has nothing to click at the final gate, and T6 rejects a submission with no way to see whether the evidence was already uploaded. **The alternative — the frontend probing the download endpoint and treating 404 as "no file" — would pull up to 10 MB to learn a filename.** Placing it on `GetChangeControlByCcID` means GET, Save Draft and all four transitions inherit it, since they all re-fetch through that one query. **Metadata only, never `file_data`** — that query runs on every read, every save and every transition                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 43  | **A 23rd endpoint was added — `PUT /{ccID}/implementation` — so the owner can save in _every_ state where the owner can edit**                                                                                                                                                                             | The plan had no save endpoint for `In Implementation`, leaving **T6 as the only way fields 29–33 could ever be written** — so T6 would save _and_ validate _and_ sign _and_ transition in one request. **A validation failure would roll back everything**, meaning a user who mistypes one field loses the other four and retypes them. `Initiated` already solved this with save-then-submit. **Rejected: making Save Draft state-aware** — that turns a clear endpoint into one with a _mode_ (two field sets, two whitelists, one URL); a sub-resource is the cleaner shape, since the URL then says what is being edited rather than the server inferring it. **This reverses the checkpoint 20 position** (flag #18), which argued implementation details are a completion report rather than a draft — true, but it does not answer the retype problem. **The payoff: T6 becomes a copy of T2**                                                                                                                                                                  |
 | 44  | **`actual_implementation_date` accepts any date at save; T6 rejects a future one**                                                                                                                                                                                                                         | The field reference says _"retrospective — no minimum lead-time rule"_, which speaks to the _other_ direction and says nothing about future dates — so this fills a gap rather than overriding, and needs a doc amendment. **Enforcing it at save would block a legitimate draft:** a user saving on Monday for work scheduled Wednesday could not record the date they are about to reach. Same split as T2's business-day rules — save validates **format**, transitions validate **business rules**. It inherits flag #21 (computed in UTC, so a day behind between midnight and 04:00 local)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 45  | **The dashboard is one endpoint returning four blocks, including a recent-activity block that no guardrail doc specifies**                                                                                                                                                                                 | The BRD describes two sections and the API plan three blocks, but **recent activity appears in all three prototypes** with no backing anywhere. **Rejected: having the frontend call `GET /changecontrols?limit=5`** for it — that already exists and sorts correctly, but it means two round trips on the first page after login, a staged render, and a payload carrying four fields the card does not display. **The decisive argument is consistency:** two calls can disagree if a CC transitions between them, so the overview count and the activity list would describe different moments. One handler, one instant. Needs a doc amendment                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 46  | **`idx_cc_last_updated_on` added in migration 007, deviating from DB §5.2's six-index list**                                                                                                                                                                                                               | **Five queries sort by `last_updated_on DESC` and none had an index** — `ListChangeControls`, `ListRecentActivity`, `ListPendingApprovalsForUser`, `ListDraftsForUser`. `ListRecentActivity` is the worst case: **no `WHERE` clause at all**, so Postgres would sort the whole table to return five rows. The cost is real — the column changes on _every_ save, transition and upload, so the index is maintained on every write — but B-tree maintenance is microseconds against argon2id's ~200 ms, and reads vastly outnumber writes here. Note the contrast with **`idx_cc_created_on`**, which came from the doc's list before the queries existed and is currently used only by the two optional date filters: an index specified ahead of its queries versus one added because five real queries needed it                                                                                                                                                                                                                                                      |
 
 ---
 
