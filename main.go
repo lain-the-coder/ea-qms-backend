@@ -95,6 +95,8 @@ func main() {
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus))))
 	mux.Handle("PUT /api/users/{userID}",
 		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserDetails))))
+	mux.Handle("GET /api/dashboard",
+		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerDashboard)))
 
 	// change control routes
 	mux.Handle("POST /api/changecontrols",

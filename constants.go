@@ -160,3 +160,9 @@ const (
 	postImplMinorResolved    = "Minor issues resolved"
 	postImplRequiresFollowUp = "Issues requiring follow-up"
 )
+
+// Dashboard card caps — §9.5.2 shows a count with a short list, not a full page
+const (
+	dashboardCardItems   = 2 // pending approvals, my drafts
+	dashboardRecentItems = 5 // recent activity
+)
