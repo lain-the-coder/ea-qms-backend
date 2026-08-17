@@ -140,6 +140,7 @@ func main() {
 	// token to fetch its own spec.
 	mux.Handle("GET /docs", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerDocsPage)))
 	mux.Handle("GET /docs/openapi.yaml", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
+	mux.Handle("GET /openapi.yaml", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
 	server := &http.Server{
 		Addr:    ":1304",
 		Handler: cfg.middlewareCORS(mux),
