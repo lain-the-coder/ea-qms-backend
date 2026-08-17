@@ -3,6 +3,7 @@
 A Go backend for the Change Control module of a Quality Management System. Change records move through a six-state workflow with two approval gates, every decision is captured by an electronic signature, and every state change is written to an immutable audit trail.
 
 **API documentation:** <https://lain-the-coder.github.io/ea-qms-backend/>
+**Specification and UI prototypes:** [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design) · [live prototypes](https://lain-the-coder.github.io/Change-Control-HTML-Design/)
 
 ---
 
@@ -213,9 +214,20 @@ The trade is deliberate, and the guide argues it properly.
 | [`FRONTEND_BLUEPRINT.md`](FRONTEND_BLUEPRINT.md) | The API contract from a client's perspective, plus the frontend plan                                          |
 | `PROGRESS.md`                                    | Every decision made during the build, with its reasoning — including the ones that reversed earlier decisions |
 
-The business requirements, database design, field reference and security matrix
-are maintained alongside the code and were amended at completion so that they
-describe what was built rather than what was intended.
+**In [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)** — the specification this was built against:
+
+|                                         |                                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| Business Requirements Document          | 50 fields, 25 user stories, the workflow, the e-signature ruleset      |
+| Security Matrix                         | 50 fields × states × 4 roles — which are editable, read-only or hidden |
+| Database Design                         | The PostgreSQL schema, constraints, indexes and concurrency handling   |
+| CC Field Reference                      | Per-field validation, and the canonical string values used here        |
+| State machine, sequence and ER diagrams |                                                                        |
+| 17 HTML prototypes + `global.css`       | Every screen, every state, every role                                  |
+
+Those documents were written before any code and amended at completion so that
+they describe what was built rather than what was intended — eleven amendments
+across four documents, each recorded with its reason.
 
 ## Testing
 
@@ -249,6 +261,8 @@ five transition handlers.
 
 Built as a solo project against a full pre-development specification — business
 requirements, a security matrix defining field permissions per role per state, a
-database design, and HTML prototypes for all seventeen screens. The specification
-was written first; where the implementation departed from it, the specification
-was amended rather than the deviation left undocumented.
+database design, and HTML prototypes for all seventeen screens. That
+specification lives in
+[Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)
+and came first; where the implementation departed from it, the specification was
+amended rather than the deviation left undocumented.
