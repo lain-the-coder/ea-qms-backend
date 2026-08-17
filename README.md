@@ -150,7 +150,7 @@ code rather than generated from example traffic. A Postman collection is in
 ## Design notes
 
 A few decisions that shaped the codebase. The reasoning for all of them, and for
-forty-odd others, is in [`GO_CODING_GUIDE.md`](GO_CODING_GUIDE.md).
+forty-odd others, is in [`GO_Coding_Guide.md`](GO_Coding_Guide.md).
 
 **The database enforces what it can.** Enum values are CHECK constraints, record
 IDs come from a sequence and a generated column, and uniqueness is decided by a
@@ -208,7 +208,7 @@ The trade is deliberate, and the guide argues it properly.
 
 |                                                  |                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [`GO_CODING_GUIDE.md`](GO_CODING_GUIDE.md)       | 18 sections, 114 rules, each with code and the trade it makes                                                 |
+| [`GO_Coding_Guide.md`](GO_Coding_Guide.md)       | 18 sections, 114 rules, each with code and the trade it makes                                                 |
 | [`docs/openapi.yaml`](docs/openapi.yaml)         | The API contract                                                                                              |
 | [`FRONTEND_BLUEPRINT.md`](FRONTEND_BLUEPRINT.md) | The API contract from a client's perspective, plus the frontend plan                                          |
 | `PROGRESS.md`                                    | Every decision made during the build, with its reasoning — including the ones that reversed earlier decisions |
