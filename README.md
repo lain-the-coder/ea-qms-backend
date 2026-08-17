@@ -17,18 +17,18 @@ draft.
 ```
                     ┌──────────── T5 reject ───────────┐
                     ▼                                  │
-  (T1) ──▶ Initiated ──T2──▶ Pending Impl Approval ────┤
+  (T1) ──▶ Initiated ──T2──▶ Pending Impl Approval ───┤
               │                                   T4 approve
               │ T3                                     ▼
-              ▼                            In Implementation ◀── T8 reject ──┐
+              ▼                            In Implementation ◀── T8 reject ─┤
           Cancelled                                    │                     │
                                                        │ T6                  │
                                                        ▼                     │
                                             Pending Final Approval ──────────┤
-                                                       │                     │
-                                                  T7 approve                 │
-                                                       ▼                     │
-                                                    Closed ──────────────────┘
+                                                       │                     
+                                                  T7 approve                 
+                                                       ▼                     
+                                                    Closed
 ```
 
 Four roles — Admin, CC Owner, Approver, Viewer — with permissions that depend on
