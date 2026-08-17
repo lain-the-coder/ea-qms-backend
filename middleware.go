@@ -90,3 +90,47 @@ func (cfg *apiConfig) requireRole(role string, next authedHandler) authedHandler
 		next(w, r, user)
 	}
 }
+
+// middlewareCORS answers cross-origin preflights and adds the headers a browser
+// needs before it will let JavaScript read a response.
+//
+// This is a BROWSER rule, not an API security control — Postman and curl ignore
+// it entirely. Authentication and authorisation are what secure the API; this
+// only decides which web origins the browser will permit to call it.
+func (cfg *apiConfig) middlewareCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		// Only echo back an origin that is explicitly allowed. Reflecting any
+		// origin, or using "*", would let any website call this API from a
+		// user's browser.
+		if _, ok := cfg.allowedOrigins[origin]; ok && origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			// Tells caches the response varies by origin, so a response for one
+			// origin is never served to another.
+			w.Header().Add("Vary", "Origin")
+		} else if origin != "" {
+			logging.LoggerFrom(r.Context()).Warn("cors origin rejected", "origin", origin)
+		}
+		// Preflight: the browser asks permission before sending anything with an
+		// Authorization header. Answer it and stop — never let it reach a handler.
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+
+			// The browser may skip the preflight for 10 minutes.
+			w.Header().Set("Access-Control-Max-Age", "600")
+
+			// Lets JavaScript read these on a download response; without it the
+			// browser hides every header except a short safelist.
+			w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
+
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		// Same exposure for the actual response, so a download can read the filename.
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
+		next.ServeHTTP(w, r)
+	})
+}

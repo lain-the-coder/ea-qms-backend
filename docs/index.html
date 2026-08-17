@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EA QMS — Change Control API</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        background: #fafafa;
+      }
+      .topbar {
+        display: none;
+      } /* hides the spec-URL bar */
+      .swagger-ui .info {
+        margin: 30px 0;
+      }
+      .swagger-ui .info .title {
+        font-size: 32px;
+      }
+      /* the enum tables in descriptions render better with a little room */
+      .swagger-ui .renderedMarkdown table {
+        margin: 12px 0;
+      }
+      .swagger-ui .renderedMarkdown table td,
+      .swagger-ui .renderedMarkdown table th {
+        padding: 6px 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+
+    <script
+      src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-standalone-preset.js"
+      crossorigin
+    ></script>
+    <script>
+      window.onload = function () {
+        window.ui = SwaggerUIBundle({
+          url: "/docs/openapi.yaml",
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: "BaseLayout",
+          docExpansion: "list", // groups expanded, operations collapsed
+          defaultModelsExpandDepth: 1,
+          defaultModelExpandDepth: 3,
+          displayRequestDuration: true,
+          filter: true, // search box above the operation list
+          tryItOutEnabled: true,
+          persistAuthorization: true, // keeps the bearer token across reloads
+        });
+      };
+    </script>
+  </body>
+</html>

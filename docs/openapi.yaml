@@ -1,0 +1,1913 @@
+openapi: 3.0.3
+
+info:
+  title: EA QMS — Change Control API
+  version: "1.0.0"
+  description: |
+    Backend for the EAMI Quality Management System Change Control module.
+
+    A change control moves through six states via eight signed transitions
+    (T1–T8). Every decision transition requires a native electronic signature
+    (email + password re-authentication), and every state change and critical
+    field change is written to an immutable audit trail.
+
+    ## Conventions
+
+    - **Change controls are addressed by their business key** (`CC-001`), not
+      by UUID. The UUID appears in responses as `id` but is never in a URL.
+    - **All timestamps are RFC 3339.** Date-only fields (`DATE` columns) are
+      returned as midnight UTC and must be sent the same way — `2026-10-15T00:00:00Z`,
+      not `2026-10-15`.
+    - **Time-of-day fields** (`implementation_window_start` / `_end`) are `TIME`
+      columns and return with a placeholder date: `0000-01-01T09:00:00Z`. Strip
+      the date portion for display; send the same format back.
+    - **Optional fields are `null`, never absent.** No field is omitted from a
+      response.
+    - **To clear a field, send `null`.** For text fields an empty string `""` is
+      also accepted and normalised to `null`. For date and time fields `""` is a
+      parse error — only `null` clears them.
+    - **Business rules are validated at transitions, not at save.** A draft may
+      hold incomplete or not-yet-valid data.
+
+    ## Errors
+
+    Every error response is `{"error": "..."}` except collect-all validation
+    failures, which are `{"error": "...", "issues": [...]}`.
+
+    | Code | Meaning |
+    |------|---------|
+    | 400 | Malformed request — bad JSON, invalid enum, missing field, failed validation |
+    | 401 | Not authenticated, or e-signature credentials rejected |
+    | 403 | Authenticated, but not permitted — wrong role, not the owner, not the assigned approver |
+    | 404 | Resource does not exist |
+    | 409 | Valid request, wrong state — e.g. submitting a record that is already submitted |
+    | 500 | Server fault |
+
+  contact:
+    name: EA QMS Backend
+    url: https://github.com/lain-the-coder/ea-qms-backend
+
+servers:
+  - url: http://localhost:1304/api
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Login, token refresh, logout
+  - name: Users
+    description: User management (Admin) and the current user's profile
+  - name: Change Controls
+    description: Create, read, list and save change control records
+  - name: Workflow
+    description: The eight signed state transitions
+  - name: Files
+    description: Implementation evidence upload and download
+  - name: Dashboard
+    description: The landing page — counts, action items and recent activity
+  - name: Signatures
+    description: E-signature history
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token from `POST /login` or `POST /refresh`.
+        Valid for **30 minutes**. The frontend should refresh proactively at
+        roughly 24 minutes (80% of the lifetime) rather than waiting for a 401.
+
+  parameters:
+    ccID:
+      name: ccID
+      in: path
+      required: true
+      description: The change control business key.
+      schema:
+        type: string
+        example: CC-001
+    userID:
+      name: userID
+      in: path
+      required: true
+      description: The user's UUID.
+      schema:
+        type: string
+        format: uuid
+    fieldName:
+      name: fieldName
+      in: path
+      required: true
+      description: |
+        The file attachment field. **Only `implementation_evidence` is accepted
+        in Phase 1.** The database schema also permits `supporting_documents`,
+        but the API rejects it (BRD §13.1 L12).
+      schema:
+        type: string
+        enum: [implementation_evidence]
+    limit:
+      name: limit
+      in: query
+      description: Page size. **Defaults to 50** — send it explicitly if the UI shows fewer.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    offset:
+      name: offset
+      in: query
+      description: Rows to skip. Reset to 0 whenever a filter changes, or the page may be empty.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+
+  schemas:
+    # ---------- enums ----------
+
+    State:
+      type: string
+      description: The six workflow states.
+      enum:
+        - Initiated
+        - Pending Implementation Approval
+        - In Implementation
+        - Pending Final Approval
+        - Closed
+        - Cancelled
+
+    Role:
+      type: string
+      description: Single role per user — a user holds exactly one.
+      enum: [Admin, CC Owner, Approver, Viewer]
+
+    ApprovalStatus:
+      type: string
+      enum: [Not Submitted, Pending, Approved, "N/A"]
+
+    Decision:
+      type: string
+      description: Imperative, not past tense — `Approve`, not `Approved`.
+      enum: [Approve, Reject]
+
+    RiskLevel:
+      type: string
+      enum: [Low, Medium, High]
+
+    ChangeType:
+      type: string
+      enum:
+        [
+          Application,
+          Infrastructure,
+          Database,
+          Security,
+          Network,
+          Hardware,
+          Process,
+          Other,
+        ]
+
+    ChangeCategory:
+      type: string
+      enum: [Normal, Standard]
+
+    DepartmentFunction:
+      type: string
+      enum: [IT, Operations, Security, QA, Facilities, Other]
+
+    ExpectedDowntime:
+      type: string
+      enum: [Yes, No, Unknown]
+
+    RequiresTesting:
+      type: string
+      description: |
+        ⚠️ **ASCII HYPHEN, not an en-dash.** The BRD and the HTML prototypes
+        render these with `–` (U+2013); the database CHECK constraint requires
+        `-` (U+002D). Copying the option values from the prototypes causes every
+        submission to fail with a 400.
+      enum:
+        - Yes - Full testing
+        - Yes - Partial testing
+        - "No"
+
+    RequiresTraining:
+      type: string
+      enum: [Yes, "No", Not applicable]
+
+    PostImplementationIssues:
+      type: string
+      description: A dropdown, not free text. Note the ASCII hyphen in the third value.
+      enum:
+        - None
+        - Minor issues resolved
+        - Issues requiring follow-up
+
+    Transition:
+      type: string
+      description: |
+        T1 (record creation) requires no signature and never appears in the
+        e-signature table.
+      enum: [T2, T3, T4, T5, T6, T7, T8]
+
+    SignatureMeaning:
+      type: string
+      description: ⚠️ The four gate meanings use ASCII hyphens.
+      enum:
+        - Submitted for Implementation Approval
+        - Cancelled
+        - Approved - Implementation Approval
+        - Rejected - Implementation Approval
+        - Submitted for Final Approval
+        - Approved - Final Approval
+        - Rejected - Final Approval
+
+    # ---------- errors ----------
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Change Control not found
+
+    ValidationErrorResponse:
+      type: object
+      description: |
+        Returned when several things are wrong at once. **All failures are
+        collected** — the API never stops at the first. Used by the transition
+        endpoints (missing mandatory fields, failed date rules) and by the two
+        save endpoints (keys not editable in the current state).
+      required: [error, issues]
+      properties:
+        error:
+          type: string
+          example: "Cannot submit: some requirements are not met"
+        issues:
+          type: array
+          items:
+            type: string
+          example:
+            - Change Description
+            - Proposed Implementation Date must be at least 2 business days from today
+            - Implementation Evidence
+
+    BlockedRoleChangeResponse:
+      type: object
+      description: |
+        409 from `PUT /users/{userID}` and `PUT /users/{userID}/active` when the
+        user is CC Owner or assigned Approver on active records.
+        **The request is all-or-nothing** — a name change submitted alongside a
+        blocked role change is also rejected.
+      required: [error, blocked_cc_ids]
+      properties:
+        error:
+          type: string
+          example: Cannot change role while the user has active change controls
+        blocked_cc_ids:
+          type: array
+          items:
+            type: string
+          example: [CC-001, CC-003]
+
+    # ---------- auth ----------
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: owner@eaqms.local
+        password:
+          type: string
+          format: password
+          description: Never trimmed — leading and trailing whitespace are significant.
+
+    LoginResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string, example: Default CC Owner }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        token:
+          type: string
+          description: JWT access token, valid 30 minutes.
+        refresh_token:
+          type: string
+          description: |
+            Opaque 256-bit token, valid 24 hours absolute with a 2-hour sliding
+            inactivity window. Store it; it is not rotated on refresh.
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    RefreshResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: A new access token. The refresh token is unchanged.
+
+    # ---------- users ----------
+
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        is_active: { type: boolean }
+        created_on: { type: string, format: date-time }
+        updated_on: { type: string, format: date-time }
+
+    ApproverRef:
+      type: object
+      description: Minimal shape for the approver dropdown — active Approvers only.
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+
+    CreateUserRequest:
+      type: object
+      required: [full_name, email, password, role]
+      properties:
+        full_name: { type: string, maxLength: 100 }
+        email: { type: string, format: email }
+        password:
+          type: string
+          format: password
+          description: |
+            Minimum 8 characters with at least one lowercase letter, one
+            uppercase letter, one digit and one special character. All unmet
+            requirements are returned together.
+        role: { $ref: "#/components/schemas/Role" }
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Both fields optional, but at least one must be present. **All-or-nothing**:
+        if the role change is blocked, the name change is not saved either.
+      properties:
+        full_name: { type: string, maxLength: 100 }
+        role: { $ref: "#/components/schemas/Role" }
+
+    SetUserActiveRequest:
+      type: object
+      required: [is_active]
+      properties:
+        is_active: { type: boolean }
+
+    UserListResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items: { $ref: "#/components/schemas/UserResponse" }
+        total:
+          type: integer
+          description: Total matching the filter, ignoring pagination.
+        limit: { type: integer }
+        offset: { type: integer }
+
+    # ---------- change controls ----------
+
+    FileRef:
+      type: object
+      description: |
+        Attachment metadata. The bytes are **never** included — fetch them from
+        `GET /changecontrols/{ccID}/files/{fieldName}`.
+      properties:
+        file_name: { type: string, example: evidence.pdf }
+        file_size:
+          type: integer
+          format: int64
+          description: Bytes. Format for display client-side.
+          example: 268058
+        content_type: { type: string, example: application/pdf }
+        uploaded_on: { type: string, format: date-time }
+
+    ChangeControlSummary:
+      type: object
+      description: The 10-field row shape used by the list endpoint.
+      properties:
+        id: { type: string, format: uuid }
+        cc_id: { type: string, example: CC-001 }
+        change_title:
+          type: string
+          nullable: true
+          description: Null on a draft created but not yet named.
+        current_state: { $ref: "#/components/schemas/State" }
+        change_owner_id: { type: string, format: uuid }
+        change_owner_name: { type: string }
+        assigned_approver_id: { type: string, format: uuid, nullable: true }
+        assigned_approver_name: { type: string, nullable: true }
+        created_on: { type: string, format: date-time }
+        last_updated_on: { type: string, format: date-time }
+
+    ChangeControlResponse:
+      type: object
+      description: |
+        The full record — returned by `GET /changecontrols/{ccID}`, both save
+        endpoints, and every transition. All four routes return an identical
+        shape, so a client can use one parser.
+
+        IDs are paired with display names: use the **id** for comparisons
+        (`change_owner_id === currentUser.id` decides whether a button renders)
+        and the **name** for display.
+      properties:
+        # Identification (BRD 1–6)
+        id: { type: string, format: uuid }
+        cc_id: { type: string, example: CC-001 }
+        current_state: { $ref: "#/components/schemas/State" }
+        change_owner_id: { type: string, format: uuid }
+        change_owner_name: { type: string }
+        last_updated_by_id:
+          type: string
+          format: uuid
+          description: |
+            Whoever last touched the record — **not necessarily the owner**. After
+            a rejection this is the approver.
+        last_updated_by_name: { type: string }
+        created_on: { type: string, format: date-time }
+        last_updated_on: { type: string, format: date-time }
+
+        # Change Definition (BRD 7–12)
+        change_title: { type: string, nullable: true, maxLength: 200 }
+        change_description: { type: string, nullable: true, maxLength: 2000 }
+        change_type:
+          {
+            allOf: [{ $ref: "#/components/schemas/ChangeType" }],
+            nullable: true,
+          }
+        change_category:
+          {
+            allOf: [{ $ref: "#/components/schemas/ChangeCategory" }],
+            nullable: true,
+          }
+        department_function:
+          {
+            allOf: [{ $ref: "#/components/schemas/DepartmentFunction" }],
+            nullable: true,
+          }
+        affected_systems_modules:
+          { type: string, nullable: true, maxLength: 500 }
+
+        # Planning (BRD 13–16)
+        proposed_implementation_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: DATE column — midnight UTC. Must be ≥ 2 business days out at T2.
+        target_closure_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: DATE column. Must be ≥ 10 business days out at T2.
+        implementation_window_start:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            TIME column — returns as `0000-01-01T09:00:00Z`. The date portion is a
+            placeholder; strip it for display and send the same format back.
+        implementation_window_end:
+          type: string
+          format: date-time
+          nullable: true
+
+        # Impact & Risk (BRD 17–23)
+        reason_for_change: { type: string, nullable: true, maxLength: 2000 }
+        business_impact: { type: string, nullable: true, maxLength: 2000 }
+        expected_downtime:
+          {
+            allOf: [{ $ref: "#/components/schemas/ExpectedDowntime" }],
+            nullable: true,
+          }
+        requires_testing:
+          {
+            allOf: [{ $ref: "#/components/schemas/RequiresTesting" }],
+            nullable: true,
+          }
+        requires_training:
+          {
+            allOf: [{ $ref: "#/components/schemas/RequiresTraining" }],
+            nullable: true,
+          }
+        risk_rationale:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: The **owner's** rationale — distinct from `risk_level`, which the approver sets.
+        key_risks_mitigations: { type: string, nullable: true, maxLength: 2000 }
+
+        # Implementation Plan (BRD 25–28)
+        high_level_implementation_plan:
+          { type: string, nullable: true, maxLength: 2000 }
+        validation_approach: { type: string, nullable: true, maxLength: 2000 }
+        success_criteria: { type: string, nullable: true, maxLength: 2000 }
+        rollback_backout_plan: { type: string, nullable: true, maxLength: 2000 }
+
+        # Implementation Details (BRD 29–34)
+        actual_implementation_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Retrospective. Accepted at save with any value; **T6 rejects a future
+            date**, so the picker should disable future dates.
+        post_implementation_issues:
+          allOf: [{ $ref: "#/components/schemas/PostImplementationIssues" }]
+          nullable: true
+        implementation_summary:
+          { type: string, nullable: true, maxLength: 2000 }
+        deviations_from_plan:
+          type: string
+          nullable: true
+          maxLength: 2000
+          description: The only optional field in this group.
+        validation_performed: { type: string, nullable: true, maxLength: 2000 }
+        implementation_evidence:
+          allOf: [{ $ref: "#/components/schemas/FileRef" }]
+          nullable: true
+          description: |
+            Metadata only. `null` until a file is uploaded. Mandatory at T6 —
+            submission is blocked without it.
+
+        # Approvals — Initiation (BRD 35–36)
+        assigned_approver_id: { type: string, format: uuid, nullable: true }
+        assigned_approver_name: { type: string, nullable: true }
+        comments_for_approver: { type: string, nullable: true, maxLength: 2000 }
+
+        # Implementation Approval (BRD 37–41)
+        decision:
+          { allOf: [{ $ref: "#/components/schemas/Decision" }], nullable: true }
+        risk_level:
+          {
+            allOf: [{ $ref: "#/components/schemas/RiskLevel" }],
+            nullable: true,
+          }
+        decision_comments: { type: string, nullable: true, maxLength: 2000 }
+        implementation_approval_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Populated on **approve only** — stays null after a rejection.
+        implementation_approval_by_name: { type: string, nullable: true }
+        implementation_approval_on:
+          { type: string, format: date-time, nullable: true }
+
+        # Final Approval (BRD 42–45)
+        final_decision:
+          { allOf: [{ $ref: "#/components/schemas/Decision" }], nullable: true }
+        final_comments: { type: string, nullable: true, maxLength: 2000 }
+        final_approval_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Populated on **approve only**.
+        final_approval_by_name: { type: string, nullable: true }
+        final_approval_on: { type: string, format: date-time, nullable: true }
+
+        # Status (BRD 46–48)
+        implementation_approval_status:
+          { $ref: "#/components/schemas/ApprovalStatus" }
+        final_approval_status: { $ref: "#/components/schemas/ApprovalStatus" }
+        actual_closure_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: System-set on T7 only. Identical to `final_approval_on`.
+
+        # Additional (BRD 49–50)
+        comments: { type: string, nullable: true, maxLength: 2000 }
+        cancellation_reason:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: |
+            Written only by `POST /{ccID}/cancel`. Never editable through a save
+            endpoint, and permanently read-only once set.
+
+    CreateChangeControlResponse:
+      type: object
+      description: |
+        Deliberately minimal — the eight fields the frontend needs to render a
+        fresh empty form. Not the full record.
+      properties:
+        id: { type: string, format: uuid }
+        cc_id: { type: string, example: CC-008 }
+        current_state: { $ref: "#/components/schemas/State" }
+        change_owner_id: { type: string, format: uuid }
+        change_owner_name: { type: string }
+        implementation_approval_status:
+          { $ref: "#/components/schemas/ApprovalStatus" }
+        final_approval_status: { $ref: "#/components/schemas/ApprovalStatus" }
+        created_on: { type: string, format: date-time }
+        last_updated_on: { type: string, format: date-time }
+
+    ChangeControlListResponse:
+      type: object
+      properties:
+        change_controls:
+          type: array
+          items: { $ref: "#/components/schemas/ChangeControlSummary" }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    SaveDraftRequest:
+      type: object
+      description: |
+        **Partial update, RFC 7386 semantics.** Send only the fields you are
+        changing:
+
+        | You send | Result |
+        |---|---|
+        | key absent | unchanged |
+        | `"field": null` | cleared |
+        | `"field": "value"` | set |
+        | `"field": ""` | cleared (text fields only — a parse error on dates) |
+
+        Only the 24 fields below are accepted. **Any other key returns 400**
+        listing every offending key, and nothing is written.
+
+        No presence validation — a draft may be saved empty. Format is validated:
+        length, enum membership, JSON type.
+      properties:
+        change_title: { type: string, nullable: true, maxLength: 200 }
+        change_description: { type: string, nullable: true, maxLength: 2000 }
+        change_type:
+          {
+            allOf: [{ $ref: "#/components/schemas/ChangeType" }],
+            nullable: true,
+          }
+        change_category:
+          {
+            allOf: [{ $ref: "#/components/schemas/ChangeCategory" }],
+            nullable: true,
+          }
+        department_function:
+          {
+            allOf: [{ $ref: "#/components/schemas/DepartmentFunction" }],
+            nullable: true,
+          }
+        affected_systems_modules:
+          { type: string, nullable: true, maxLength: 500 }
+        proposed_implementation_date:
+          { type: string, format: date-time, nullable: true }
+        target_closure_date: { type: string, format: date-time, nullable: true }
+        implementation_window_start:
+          { type: string, format: date-time, nullable: true }
+        implementation_window_end:
+          { type: string, format: date-time, nullable: true }
+        reason_for_change: { type: string, nullable: true, maxLength: 2000 }
+        business_impact: { type: string, nullable: true, maxLength: 2000 }
+        expected_downtime:
+          {
+            allOf: [{ $ref: "#/components/schemas/ExpectedDowntime" }],
+            nullable: true,
+          }
+        requires_testing:
+          {
+            allOf: [{ $ref: "#/components/schemas/RequiresTesting" }],
+            nullable: true,
+          }
+        requires_training:
+          {
+            allOf: [{ $ref: "#/components/schemas/RequiresTraining" }],
+            nullable: true,
+          }
+        risk_rationale: { type: string, nullable: true, maxLength: 2000 }
+        key_risks_mitigations: { type: string, nullable: true, maxLength: 2000 }
+        high_level_implementation_plan:
+          { type: string, nullable: true, maxLength: 2000 }
+        validation_approach: { type: string, nullable: true, maxLength: 2000 }
+        success_criteria: { type: string, nullable: true, maxLength: 2000 }
+        rollback_backout_plan: { type: string, nullable: true, maxLength: 2000 }
+        assigned_approver_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Must be an **active user holding the Approver role** — otherwise 400.
+            Source the list from `GET /approvers`.
+        comments_for_approver: { type: string, nullable: true, maxLength: 2000 }
+        comments: { type: string, nullable: true, maxLength: 2000 }
+
+    SaveImplementationRequest:
+      type: object
+      description: |
+        Same partial-update semantics as `SaveDraftRequest`, for the five fields
+        editable in `In Implementation`. Any other key returns 400.
+
+        The evidence **file** is uploaded separately.
+      properties:
+        actual_implementation_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: Any date accepted here; T6 rejects a future one.
+        post_implementation_issues:
+          allOf: [{ $ref: "#/components/schemas/PostImplementationIssues" }]
+          nullable: true
+        implementation_summary:
+          { type: string, nullable: true, maxLength: 2000 }
+        deviations_from_plan: { type: string, nullable: true, maxLength: 2000 }
+        validation_performed: { type: string, nullable: true, maxLength: 2000 }
+
+    # ---------- signatures ----------
+
+    ESignatureCredentials:
+      type: object
+      description: |
+        Required by every transition. **The email must match the logged-in user**
+        (BR-8.8.3) — signing on behalf of someone else is rejected even with
+        valid credentials. Comparison is case-insensitive.
+
+        A failed signature returns 401, writes a `SignatureFailed` audit row, and
+        **leaves the record untouched** — safe to retry.
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    SubmitRequest:
+      allOf: [{ $ref: "#/components/schemas/ESignatureCredentials" }]
+      description: |
+        Credentials only — **no field values.** The transition validates what is
+        already stored, so the form must be saved first.
+
+    CancelRequest:
+      allOf:
+        - $ref: "#/components/schemas/ESignatureCredentials"
+        - type: object
+          required: [cancellation_reason]
+          properties:
+            cancellation_reason:
+              type: string
+              maxLength: 500
+              description: Mandatory, not whitespace-only. Permanently read-only once saved.
+
+    DecisionRequest:
+      allOf:
+        - $ref: "#/components/schemas/ESignatureCredentials"
+        - type: object
+          required: [decision, risk_level, decision_comments]
+          properties:
+            decision: { $ref: "#/components/schemas/Decision" }
+            risk_level: { $ref: "#/components/schemas/RiskLevel" }
+            decision_comments:
+              type: string
+              maxLength: 2000
+              description: Mandatory on **both** paths — there is no separate rejection field.
+
+    FinalDecisionRequest:
+      allOf:
+        - $ref: "#/components/schemas/ESignatureCredentials"
+        - type: object
+          required: [final_decision, final_comments]
+          properties:
+            final_decision: { $ref: "#/components/schemas/Decision" }
+            final_comments: { type: string, maxLength: 2000 }
+          description: No `risk_level` at this gate — that belongs to the implementation approval.
+
+    SignatureItem:
+      type: object
+      properties:
+        transition: { $ref: "#/components/schemas/Transition" }
+        meaning: { $ref: "#/components/schemas/SignatureMeaning" }
+        signer_name:
+          type: string
+          description: |
+            Snapshot captured at signing (BR-8.8.5) — not a live join. Renaming a
+            user does not rewrite their past signatures.
+        signed_on: { type: string, format: date-time }
+
+    SignatureListResponse:
+      type: object
+      properties:
+        signatures:
+          type: array
+          items: { $ref: "#/components/schemas/SignatureItem" }
+
+    # ---------- files ----------
+
+    FileUploadResponse:
+      type: object
+      properties:
+        file_name: { type: string }
+        file_size: { type: integer, format: int64 }
+        content_type: { type: string, example: application/pdf }
+        uploaded_on: { type: string, format: date-time }
+
+    # ---------- dashboard ----------
+
+    DashboardOverview:
+      type: object
+      description: |
+        System-wide counts. **All five keys are always present**, reporting `0`
+        where no records exist. `Cancelled` is deliberately excluded (BRD §9.5.2
+        lists five active states) although cancelled records can appear in
+        recent activity.
+      required:
+        - initiated
+        - pending_implementation_approval
+        - in_implementation
+        - pending_final_approval
+        - closed
+      properties:
+        initiated: { type: integer, format: int64 }
+        pending_implementation_approval: { type: integer, format: int64 }
+        in_implementation: { type: integer, format: int64 }
+        pending_final_approval: { type: integer, format: int64 }
+        closed: { type: integer, format: int64 }
+
+    DashboardCCItem:
+      type: object
+      properties:
+        cc_id: { type: string }
+        change_title: { type: string, nullable: true }
+        current_state: { $ref: "#/components/schemas/State" }
+
+    DashboardActivityItem:
+      type: object
+      properties:
+        cc_id: { type: string }
+        change_title: { type: string, nullable: true }
+        current_state: { $ref: "#/components/schemas/State" }
+        last_updated_on: { type: string, format: date-time }
+        last_updated_by_name: { type: string }
+
+    DashboardResponse:
+      type: object
+      description: |
+        The whole landing page in one call. **The lists are capped; the totals
+        are not** — three drafts returns `my_drafts_total: 3` with two items,
+        which is what lets a card show "3" over two rows.
+      properties:
+        overview: { $ref: "#/components/schemas/DashboardOverview" }
+        pending_approvals:
+          type: array
+          maxItems: 2
+          description: |
+            Assigned to the caller, in **either** pending state — so the list
+            mixes gates and each row needs its own badge from `current_state`.
+          items: { $ref: "#/components/schemas/DashboardCCItem" }
+        pending_approvals_total: { type: integer, format: int64 }
+        my_drafts:
+          type: array
+          maxItems: 2
+          description: Owned by the caller, in `Initiated`.
+          items: { $ref: "#/components/schemas/DashboardCCItem" }
+        my_drafts_total: { type: integer, format: int64 }
+        recent_activity:
+          type: array
+          maxItems: 5
+          description: System-wide, most recent first. Includes cancelled records.
+          items: { $ref: "#/components/schemas/DashboardActivityItem" }
+
+  responses:
+    Unauthorized:
+      description: Missing, malformed or expired access token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: Unauthorized }
+    Forbidden:
+      description: Authenticated, but not permitted for this record or role.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: Forbidden }
+    NotFound:
+      description: The resource does not exist.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: Change Control not found }
+    BadRequest:
+      description: Malformed or invalid request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: Invalid request body }
+    ServerError:
+      description: Server fault. The detail is logged, not returned.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { error: Something went wrong }
+
+paths:
+  # ══════════════════════════ AUTH ══════════════════════════
+
+  /login:
+    post:
+      tags: [Auth]
+      summary: Sign in
+      security: []
+      description: |
+        Returns an access token (30 min) and a refresh token (24 h absolute,
+        2 h sliding inactivity).
+
+        An unknown email and a wrong password return the **same** message and
+        take the same time — the unknown path hashes against a dummy to equalise
+        the response, so neither can be used to enumerate accounts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Wrong credentials, or the account is deactivated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Incorrect email or password }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token
+      security: []
+      description: |
+        The refresh token is **not rotated** — keep using the same one. Each
+        successful refresh slides the 2-hour inactivity window forward; the
+        24-hour absolute expiry does not move.
+
+        The token travels in the JSON body, not a header — it is not a bearer
+        credential and does not belong in an `Authorization` header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: A new access token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RefreshResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Unknown, revoked, expired or idle-timed-out token. Sign in again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Invalid or expired refresh token }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /revoke:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      security: []
+      description: |
+        **Idempotent** — returns 204 whether the token was valid, already
+        revoked, or never existed. Logging out should never fail, and identical
+        responses stop a prober learning whether a token is real.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "204": { description: Signed out. No body. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ══════════════════════════ USERS ══════════════════════════
+
+  /me:
+    get:
+      tags: [Users]
+      summary: The current user
+      responses:
+        "200":
+          description: The authenticated user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: Admin only. Sorted by full name.
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - name: is_active
+          in: query
+          description: Omit for all users.
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: A page of users.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserListResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+    post:
+      tags: [Users]
+      summary: Create a user
+      description: Admin only. The new user can sign in immediately.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateUserRequest" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: |
+            Validation failed. Password rules are returned together, not one at a time.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                error: "Password must be at least 8 characters; Password must contain at least one uppercase letter"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: The email is already registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: A user with that email already exists }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /users/{userID}:
+    put:
+      tags: [Users]
+      summary: Update a user's name and/or role
+      description: |
+        Admin only. **All-or-nothing** — if the role change is blocked, the name
+        change is not saved either.
+
+        An Admin may change their own name but **not their own role** (lockout
+        prevention).
+      parameters:
+        - $ref: "#/components/parameters/userID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateUserRequest" }
+      responses:
+        "200":
+          description: Updated. Returned unchanged if nothing differed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Not an Admin, or attempting to change one's own role.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: You cannot change your own role }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Blocked by active change controls.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockedRoleChangeResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /users/{userID}/active:
+    put:
+      tags: [Users]
+      summary: Activate or deactivate a user
+      description: |
+        Admin only. **Deactivation is blocked** while the user is CC Owner or
+        assigned Approver on any active record — a deactivated approver cannot
+        sign in, and there is no reassignment mechanism, so their records would
+        be stranded.
+
+        Self-deactivation is rejected. Reactivation is never blocked.
+      parameters:
+        - $ref: "#/components/parameters/userID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetUserActiveRequest" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Attempting to deactivate oneself.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: You cannot deactivate your own account }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Blocked by active change controls.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockedRoleChangeResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /approvers:
+    get:
+      tags: [Users]
+      summary: Active users holding the Approver role
+      description: |
+        Any authenticated role. Populates the Assigned Approver dropdown.
+        Returns id and name only — `hashed_password` is never selected.
+      responses:
+        "200":
+          description: Approvers, sorted by name.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvers:
+                    type: array
+                    items: { $ref: "#/components/schemas/ApproverRef" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ══════════════════════ CHANGE CONTROLS ══════════════════════
+
+  /changecontrols:
+    post:
+      tags: [Change Controls]
+      summary: Create an empty change control
+      description: |
+        CC Owner only. Creates a record in `Initiated` with only ownership set —
+        every other field is null and filled in via Save Draft.
+
+        The CC-ID is generated by the database from a sequence, so concurrent
+        creates cannot collide. **Gaps are expected**: a rolled-back create burns
+        a number permanently.
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/CreateChangeControlResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    get:
+      tags: [Change Controls]
+      summary: List change controls
+      description: |
+        Any authenticated role sees all records — visibility is not scoped by
+        role (BRD §2.2). Sorted by `last_updated_on DESC`; there is no sort
+        parameter.
+
+        All filters are optional and combine with AND.
+
+        `?state=` accepts **one** value. For "either pending state", use the
+        dashboard's `pending_approvals` block, which is purpose-built for it.
+      parameters:
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - name: owner
+          in: query
+          description: |
+            Pass `me` to filter to your own records. A flag, not a UUID — the
+            server resolves it from the token, so no user ID appears in a URL.
+          schema: { type: string, enum: [me] }
+        - name: assigned
+          in: query
+          description: Pass `me` for records where you are the assigned approver.
+          schema: { type: string, enum: [me] }
+        - name: state
+          in: query
+          description: Exact match on one state.
+          schema: { $ref: "#/components/schemas/State" }
+        - name: created_after
+          in: query
+          description: Inclusive. `YYYY-MM-DD`.
+          schema: { type: string, format: date }
+        - name: created_before
+          in: query
+          description: Inclusive of the whole day.
+          schema: { type: string, format: date }
+        - name: search
+          in: query
+          description: |
+            Case-insensitive substring across **CC-ID, change title and owner
+            name**. Not the description or any other field.
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of summaries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlListResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}:
+    get:
+      tags: [Change Controls]
+      summary: Get one change control
+      description: Any authenticated role, any state. Returns the full record.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      responses:
+        "200":
+          description: The record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    put:
+      tags: [Change Controls]
+      summary: Save draft (Initiated)
+      description: |
+        **Owner only, `Initiated` only.** Partial update across the 24 fields
+        editable in that state.
+
+        Validates **format** — length, enum membership, JSON type — but **not
+        presence**: a draft may be saved empty. Presence and the business-day
+        date rules are enforced at T2.
+
+        An unchanged save is a no-op: nothing is written and `last_updated_on`
+        does not move.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveDraftRequest" }
+      responses:
+        "200":
+          description: Saved. Returns the full record, identical in shape to `GET`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: |
+            Format validation failed, the body was empty, or it contained keys
+            not editable in this state — in which case every offending key is
+            listed and **nothing is written**.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+              examples:
+                singleField:
+                  summary: One field failed
+                  value: { error: Change Title must be 200 characters or fewer }
+                notEditable:
+                  summary: Keys not editable in this state
+                  value:
+                    error: Some fields cannot be edited in the Initiated state
+                    issues: [current_state, decision]
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `Initiated`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                { error: Save action only allowed at Initiated state of CC }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}/implementation:
+    put:
+      tags: [Change Controls]
+      summary: Save implementation details (In Implementation)
+      description: |
+        **Owner only, `In Implementation` only.** The five implementation-detail
+        fields, with the same partial-update semantics as Save Draft.
+
+        Exists so progress can be saved in this state exactly as `Initiated`
+        allows — **T6 carries no field values** and validates only what is
+        stored, so the form must be saved before submitting.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveImplementationRequest" }
+      responses:
+        "200":
+          description: Saved. Returns the full record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: Format validation failed, empty body, or non-editable keys.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `In Implementation`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example:
+                {
+                  error: Save action only allowed at In Implementation state of CC,
+                }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ═══════════════════════════ WORKFLOW ═══════════════════════════
+  #
+  # Every transition requires an e-signature and follows the same order:
+  #   gates (404 / 403 / 409) → validation (400) → signature (401) → commit
+  #
+  # FR-6.2.34: the signature is checked LAST, so a validation failure never
+  # asks the user for a password. A failed signature leaves the record
+  # untouched — retrying is safe.
+
+  /changecontrols/{ccID}/submit:
+    post:
+      tags: [Workflow]
+      summary: T2 — Submit for implementation approval
+      description: |
+        `Initiated` → `Pending Implementation Approval`. **Owner only.**
+
+        Validates, against what is **stored**:
+        - **20 mandatory fields** — every missing one is returned together
+        - `proposed_implementation_date` ≥ **2 business days** from today
+        - `target_closure_date` ≥ **10 business days** from today
+
+        Business days are weekdays; public holidays are not modelled. All date
+        maths is computed in **UTC**.
+
+        Not mandatory: the two window times, comments for approver, comments.
+
+        On success: state moves, `implementation_approval_status` → `Pending`, a
+        T2 signature is recorded, and two audit rows are written.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitRequest" }
+      responses:
+        "200":
+          description: Submitted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: Mandatory fields missing and/or date rules failed — all collected.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorResponse" }
+              example:
+                error: "Cannot submit: some requirements are not met"
+                issues:
+                  - Change Category
+                  - Assigned Approver
+                  - Target Closure Date must be at least 10 business days from today
+        "401":
+          description: |
+            Not authenticated, **or** the e-signature was rejected. A rejected
+            signature writes a `SignatureFailed` audit row and leaves the record
+            unchanged.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Invalid credentials }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `Initiated` — already submitted, or cancelled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}/cancel:
+    post:
+      tags: [Workflow]
+      summary: T3 — Cancel
+      description: |
+        `Initiated` → **`Cancelled`** (terminal). **Owner only.**
+
+        **No presence validation** — a draft may be abandoned at any
+        completeness, which is the substantive difference from T2.
+
+        `cancellation_reason` is mandatory here and is the only place it can be
+        written; it is permanently read-only afterwards.
+
+        On success both approval statuses become `N/A` and three audit rows are
+        written. Nothing transitions out of `Cancelled`.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CancelRequest" }
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: Reason missing, whitespace-only, or over 500 characters.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Cancellation Reason cannot be blank }
+        "401":
+          description: Not authenticated, or the e-signature was rejected.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `Initiated`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}/decision:
+    post:
+      tags: [Workflow]
+      summary: T4 / T5 — Implementation approval decision
+      description: |
+        **One endpoint, two outcomes**, chosen by the `decision` value — there is
+        a single Submit Decision button, not separate approve and reject routes.
+
+        | decision | → | implementation_approval_status |
+        |---|---|---|
+        | `Approve` | `In Implementation` | `Approved` |
+        | `Reject` | `Initiated` | `Not Submitted` |
+
+        **Restricted to the assigned approver** — not merely to the Approver
+        role. A CC Owner on a record in the correct state gets 403.
+
+        All three fields are mandatory on **both** paths.
+
+        `implementation_approval_by_id` / `_on` are populated on **approve only**.
+
+        On a rejection the decision fields are **not cleared** — the owner can
+        see why it came back. A re-review overwrites them, and the audit trail
+        is then the only surviving record of the rejection.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecisionRequest" }
+      responses:
+        "200":
+          description: Decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: |
+            A field is missing or invalid. Note `Approve`, not `Approved`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Invalid decision }
+        "401":
+          description: Not authenticated, or the e-signature was rejected.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Not the **assigned** approver on this record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Forbidden }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `Pending Implementation Approval`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}/submit-final:
+    post:
+      tags: [Workflow]
+      summary: T6 — Submit for final approval
+      description: |
+        `In Implementation` → `Pending Final Approval`. **Owner only.**
+
+        Carries **no field values** — save them first via
+        `PUT /{ccID}/implementation`.
+
+        Validates, against what is stored:
+        - **Four mandatory fields** — `deviations_from_plan` is optional
+        - `actual_implementation_date` **must not be in the future**
+        - **An evidence file must exist**, or submission is blocked
+
+        All four failures collect into one response.
+
+        On success `final_approval_status` → `Pending`. The record's fields and
+        its evidence file are then **locked** — the save and upload endpoints
+        both return 409 — so the approver reviews exactly what was signed for.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubmitRequest" }
+      responses:
+        "200":
+          description: Submitted for final approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400":
+          description: Mandatory fields missing, a future date, and/or no evidence file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationErrorResponse" }
+              example:
+                error: "Cannot submit: some requirements are not met"
+                issues:
+                  - Implementation Evidence
+                  - Validation Performed
+                  - Actual Implementation Date cannot be in the future
+        "401":
+          description: Not authenticated, or the e-signature was rejected.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `In Implementation`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /changecontrols/{ccID}/final-decision:
+    post:
+      tags: [Workflow]
+      summary: T7 / T8 — Final approval decision
+      description: |
+        **One endpoint, two outcomes.** The last transition.
+
+        | final_decision | → | final_approval_status |
+        |---|---|---|
+        | `Approve` | **`Closed`** (terminal) | `Approved` |
+        | `Reject` | `In Implementation` | `Not Submitted` |
+
+        **Assigned approver only.** Both fields mandatory on both paths — note
+        there is **no `risk_level`** at this gate.
+
+        On approve, `final_approval_by_id`, `final_approval_on` and
+        `actual_closure_date` are set; the last two are identical, since the
+        record closes at the moment it is approved.
+        `implementation_approval_status` is left untouched.
+
+        A closed record stays fully **readable** and its evidence remains
+        downloadable — only writes are refused.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FinalDecisionRequest" }
+      responses:
+        "200":
+          description: Decision recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Not authenticated, or the e-signature was rejected.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Not the **assigned** approver on this record.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `Pending Final Approval`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ═══════════════════════════ FILES ═══════════════════════════
+
+  /changecontrols/{ccID}/files/{fieldName}:
+    post:
+      tags: [Files]
+      summary: Upload implementation evidence
+      description: |
+        **Owner only, `In Implementation` only.** `multipart/form-data`, with the
+        file in a part named **`file`**.
+
+        Do **not** set `Content-Type` by hand — the browser generates it with the
+        boundary, and overriding it breaks parsing.
+
+        **PDF only, 10 MB maximum.** The type is verified by inspecting the
+        file's contents, not the extension or the declared content type, so a
+        renamed PNG is rejected.
+
+        **One file per field — re-uploading replaces it.** There is no delete
+        endpoint; upload a different file to change it.
+
+        The filename is sanitised before storage: path components stripped,
+        control characters and quotes removed, capped at 255 characters.
+      parameters:
+        - $ref: "#/components/parameters/ccID"
+        - $ref: "#/components/parameters/fieldName"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: A PDF, 10 MB or smaller.
+      responses:
+        "200":
+          description: |
+            Uploaded. **200, not 201** — the endpoint cannot tell whether it
+            created or replaced.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileUploadResponse" }
+        "400":
+          description: |
+            Not a PDF, over 10 MB, empty, missing the `file` part, not multipart,
+            or an unsupported `fieldName`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              examples:
+                notPdf:
+                  value: { error: Only PDF files are accepted }
+                tooLarge:
+                  value: { error: File must be 10 MB or smaller }
+                missingPart:
+                  value: { error: Missing file payload in request }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Not the owner. The approver has no involvement in this state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Not in `In Implementation`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    get:
+      tags: [Files]
+      summary: Download implementation evidence
+      description: |
+        **Any authenticated role, any state** — the approver must review evidence
+        at the final gate, and a closed record's evidence must stay reachable.
+
+        Returns the raw bytes with three headers:
+
+        | Header | |
+        |---|---|
+        | `Content-Type` | `application/pdf` |
+        | `Content-Disposition` | `attachment; filename="..."` |
+        | `Content-Length` | the byte count |
+
+        `Content-Length` matters: without it a browser cannot distinguish a
+        truncated transfer from a complete one.
+
+        ⚠️ **This cannot be a plain `<a href>`.** The endpoint requires the bearer
+        token and a link cannot send headers. Use `fetch()` → `.blob()` →
+        `URL.createObjectURL()` → synthesise a click. The `try/catch` also covers
+        truncation, which the browser detects via `Content-Length`.
+
+        Use the `implementation_evidence` object on the CC response to decide
+        whether to offer the download — do not probe this endpoint.
+      parameters:
+        - $ref: "#/components/parameters/ccID"
+        - $ref: "#/components/parameters/fieldName"
+      responses:
+        "200":
+          description: The file.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: attachment; filename="evidence.pdf"
+            Content-Length:
+              schema: { type: integer }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "400":
+          description: Unsupported `fieldName`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: |
+            Either the change control does not exist, or it has no file. The two
+            are distinguished by the message.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              examples:
+                noCC:
+                  value: { error: Change Control not found }
+                noFile:
+                  value:
+                    { error: File not found for Implementation Evidence field }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ═════════════════════════ DASHBOARD ═════════════════════════
+
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: The landing page in one call
+      description: |
+        **Any authenticated role.** All four blocks are returned to everyone —
+        the endpoint is role-blind, and the content differs only because a Viewer
+        owns no drafts and is assigned no approvals.
+
+        `overview` is system-wide and identical for every user. The two action
+        cards are personal.
+
+        The lists are capped (2, 2 and 5); the totals are not.
+      responses:
+        "200":
+          description: The dashboard.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardResponse" }
+              example:
+                overview:
+                  initiated: 2
+                  pending_implementation_approval: 3
+                  in_implementation: 0
+                  pending_final_approval: 1
+                  closed: 2
+                pending_approvals:
+                  - cc_id: CC-001
+                    change_title: Kiosk receipt printer firmware update
+                    current_state: Pending Final Approval
+                  - cc_id: CC-008
+                    change_title: Firewall rule set review
+                    current_state: Pending Implementation Approval
+                pending_approvals_total: 4
+                my_drafts: []
+                my_drafts_total: 0
+                recent_activity:
+                  - cc_id: CC-001
+                    change_title: Kiosk receipt printer firmware update
+                    current_state: Pending Final Approval
+                    last_updated_on: "2026-08-16T17:47:47.316337+04:00"
+                    last_updated_by_name: Default CC Owner
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════ SIGNATURES ════════════════════════
+
+  /changecontrols/{ccID}/signatures:
+    get:
+      tags: [Signatures]
+      summary: E-signature history
+      description: |
+        **Any authenticated role** — the trail is what an auditor reads, so it is
+        gated by neither ownership nor state.
+
+        **Oldest first**, uncapped: a complete history is never truncated.
+
+        An empty array is a legitimate answer — a record in `Initiated` has no
+        signatures, since T1 requires none. Only an unknown CC-ID returns 404.
+
+        `signer_name` is the snapshot taken at signing, so renaming a user does
+        not rewrite their past signatures.
+      parameters: [{ $ref: "#/components/parameters/ccID" }]
+      responses:
+        "200":
+          description: |
+            The history. The example is a record rejected at **both** gates and
+            eventually closed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureListResponse" }
+              example:
+                signatures:
+                  - {
+                      transition: T2,
+                      meaning: Submitted for Implementation Approval,
+                      signer_name: Default CC Owner,
+                      signed_on: "2026-08-12T16:30:04.568410+04:00",
+                    }
+                  - {
+                      transition: T5,
+                      meaning: Rejected - Implementation Approval,
+                      signer_name: Default Approver,
+                      signed_on: "2026-08-12T16:31:32.862131+04:00",
+                    }
+                  - {
+                      transition: T2,
+                      meaning: Submitted for Implementation Approval,
+                      signer_name: Default CC Owner,
+                      signed_on: "2026-08-12T16:32:27.339698+04:00",
+                    }
+                  - {
+                      transition: T4,
+                      meaning: Approved - Implementation Approval,
+                      signer_name: Default Approver,
+                      signed_on: "2026-08-12T16:32:51.701792+04:00",
+                    }
+                  - {
+                      transition: T6,
+                      meaning: Submitted for Final Approval,
+                      signer_name: Default CC Owner,
+                      signed_on: "2026-08-15T22:54:45.954338+04:00",
+                    }
+                  - {
+                      transition: T8,
+                      meaning: Rejected - Final Approval,
+                      signer_name: Default Approver,
+                      signed_on: "2026-08-16T13:13:48.867795+04:00",
+                    }
+                  - {
+                      transition: T6,
+                      meaning: Submitted for Final Approval,
+                      signer_name: Default CC Owner,
+                      signed_on: "2026-08-16T13:24:49.241059+04:00",
+                    }
+                  - {
+                      transition: T7,
+                      meaning: Approved - Final Approval,
+                      signer_name: Default Approver,
+                      signed_on: "2026-08-16T13:25:56.350896+04:00",
+                    }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }

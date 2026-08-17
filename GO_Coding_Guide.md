@@ -905,7 +905,7 @@ authentication is a build error, not a runtime hole.**
 
 That is the whole design: the compiler enforces it, not discipline.
 
-### 9.2 Three registration variations, and no others
+### 9.2 Three registration variations for data routes
 
 ```go
 // 1 — public
@@ -923,6 +923,26 @@ mux.Handle("POST /api/users",
 
 Variation 2 needs no `http.HandlerFunc` wrap — `middlewareAuth` already returns a
 handler.
+
+Two things sit outside this pattern, both deliberately:
+
+```go
+// CORS wraps the WHOLE MUX, not a route. A preflight OPTIONS arrives on a path
+// with no registered handler, and per-route middleware never runs when no route
+// matches — so the browser would get a 404 where it expects permission headers.
+server := &http.Server{ Addr: ":1304", Handler: cfg.middlewareCORS(mux) }
+
+// The documentation is public and outside /api. Swagger UI cannot send a bearer
+// token to fetch its own specification, and documentation is not API surface.
+mux.Handle("GET /docs",
+    cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerDocsPage)))
+mux.Handle("GET /docs/openapi.yaml",
+    cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
+```
+
+The rule holds for **every route that serves data**. Infrastructure — CORS, static
+documentation — is not a route serving data, and forcing it into the pattern would
+break it: a mux-level concern cannot be attached per route.
 
 ### 9.3 Pass the request logger by context; pass the user by argument
 
@@ -1005,6 +1025,33 @@ If someone else's record happens to be in the wrong state, they should be told
 reveals its stage.
 
 Same reasoning as verifying the password before the `is_active` check at login.
+
+### 9.8 CORS is a browser rule, not an API control
+
+```go
+origin := r.Header.Get("Origin")
+if _, ok := cfg.allowedOrigins[origin]; ok && origin != "" {
+    w.Header().Set("Access-Control-Allow-Origin", origin)
+    w.Header().Add("Vary", "Origin")
+}
+if r.Method == http.MethodOptions {
+    // ... allow headers ...
+    w.WriteHeader(http.StatusNoContent)
+    return                      // never reaches a handler
+}
+```
+
+Three things follow that are easy to get wrong:
+
+- **Postman and curl send no `Origin` header**, so none of this applies to
+  them. That is why the API worked for months before CORS existed.
+- **A blocked request still runs.** The browser sends it, your handler executes,
+  the database is written — and only then does the browser refuse to hand the
+  response to JavaScript. CORS protects the _user_, not the API.
+- **Never `*`.** A wildcard cannot be combined with credentials, and would let
+  any site call the API from a logged-in user's browser. Echo back only an
+  origin from an explicit list, and add `Vary: Origin` so a cached response for
+  one origin is never served to another.
 
 ---
 
