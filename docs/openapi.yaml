@@ -112,11 +112,19 @@ components:
     limit:
       name: limit
       in: query
-      description: Page size. **Defaults to 50** — send it explicitly if the UI shows fewer.
+      description: |
+        Page size. **Defaults to 50** — send it explicitly if the UI shows fewer.
+
+        **The maximum is 200, and the server clamps rather than rejects.** A
+        `limit` above 200 returns 200 rows with `200 OK` and nothing indicating
+        the value was capped; only `limit < 1` or a non-integer is a 400. The
+        `maximum` below therefore documents the clamp point, not a validation
+        boundary — **read `limit` back off the response** rather than assuming
+        the request's value was honoured.
       schema:
         type: integer
         minimum: 1
-        maximum: 100
+        maximum: 200
         default: 50
     offset:
       name: offset
@@ -183,7 +191,12 @@ components:
 
     ExpectedDowntime:
       type: string
-      enum: [Yes, No, Unknown]
+      description: |
+        ⚠️ **`Yes` and `No` must stay quoted.** YAML 1.1 resolves bare `Yes`,
+        `No`, `On` and `Off` to booleans, so `[Yes, No, Unknown]` loads as
+        `[true, false, "Unknown"]` and both string members disappear. The values
+        are strings; `Unknown` needs no quotes because it is not a boolean word.
+      enum: ["Yes", "No", Unknown]
 
     RequiresTesting:
       type: string
@@ -199,7 +212,8 @@ components:
 
     RequiresTraining:
       type: string
-      enum: [Yes, "No", Not applicable]
+      description: ⚠️ `Yes` and `No` must stay quoted — see `ExpectedDowntime`.
+      enum: ["Yes", "No", Not applicable]
 
     PostImplementationIssues:
       type: string
@@ -242,9 +256,20 @@ components:
       type: object
       description: |
         Returned when several things are wrong at once. **All failures are
-        collected** — the API never stops at the first. Used by the transition
-        endpoints (missing mandatory fields, failed date rules) and by the two
-        save endpoints (keys not editable in the current state).
+        collected** rather than stopping at the first.
+
+        **Four endpoints return this, not "the transitions":**
+
+        - the two save endpoints — keys not editable in the current state
+        - **T2 and T6 only** — the two *submit* transitions: missing mandatory
+          fields, failed date rules
+
+        Cancel (T3), the implementation decision (T4/T5) and the final decision
+        (T7/T8) fail on the **first** problem with a plain `ErrorResponse`.
+        That is by design: they validate a small request body the user has just
+        typed, where one message points at one field. T2 and T6 validate stored
+        state across twenty-odd fields, where stopping at the first would mean
+        twenty round trips.
       required: [error, issues]
       properties:
         error:
@@ -323,8 +348,32 @@ components:
 
     # ---------- users ----------
 
+    # ⚠️ The user endpoints return THREE different shapes, not one. An earlier
+    # revision of this spec merged them into a single `UserResponse` carrying
+    # both timestamps, which made `created_on` look available after a status
+    # change and `is_active` look available on `/me`. Neither is sent.
+    #
+    #   MeResponse          GET /me                      4 fields, no timestamp
+    #   UserResponse        POST /users, GET /users       + is_active, created_on
+    #   UserStatusResponse  the two PUT /users/{userID}   + is_active, updated_on
+
+    MeResponse:
+      type: object
+      description: |
+        `GET /me` only. **No `is_active` and no timestamp** — the handler builds
+        its own four-field struct. This is the shape the auth store holds.
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+
     UserResponse:
       type: object
+      description: |
+        A user as returned by `POST /users` and by the rows of `GET /users`.
+        Carries `created_on`; **`updated_on` is not sent here** — see
+        `UserStatusResponse`.
       properties:
         id: { type: string, format: uuid }
         full_name: { type: string }
@@ -332,6 +381,20 @@ components:
         role: { $ref: "#/components/schemas/Role" }
         is_active: { type: boolean }
         created_on: { type: string, format: date-time }
+
+    UserStatusResponse:
+      type: object
+      description: |
+        Returned by **both** `PUT /users/{userID}` and
+        `PUT /users/{userID}/active`. Carries `updated_on`; **`created_on` is
+        not sent here.** A table row refreshed from this response loses its
+        created date unless the client merges rather than replaces.
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        is_active: { type: boolean }
         updated_on: { type: string, format: date-time }
 
     ApproverRef:
@@ -340,6 +403,16 @@ components:
       properties:
         id: { type: string, format: uuid }
         full_name: { type: string }
+
+    ListApproversResponse:
+      type: object
+      description: |
+        `GET /approvers`. The array is **wrapped in an object**, exactly like
+        every other list endpoint — it is not a bare JSON array.
+      properties:
+        approvers:
+          type: array
+          items: { $ref: "#/components/schemas/ApproverRef" }
 
     CreateUserRequest:
       type: object
@@ -352,8 +425,12 @@ components:
           format: password
           description: |
             Minimum 8 characters with at least one lowercase letter, one
-            uppercase letter, one digit and one special character. All unmet
-            requirements are returned together.
+            uppercase letter, one digit and one special character.
+
+            Every unmet requirement is reported, but **joined into the single
+            `error` string** — `"Password must contain at least 1 uppercase
+            letter, at least 1 digit"`. This is a plain `ErrorResponse`;
+            **there is no `issues` array.** Render `error` as it arrives.
         role: { $ref: "#/components/schemas/Role" }
 
     UpdateUserRequest:
@@ -605,14 +682,19 @@ components:
     CreateChangeControlResponse:
       type: object
       description: |
-        Deliberately minimal — the eight fields the frontend needs to render a
+        Deliberately minimal — the eleven fields the frontend needs to render a
         fresh empty form. Not the full record.
+
+        On a new record `last_updated_by_*` is the creating owner, since nobody
+        else has touched it yet.
       properties:
         id: { type: string, format: uuid }
         cc_id: { type: string, example: CC-008 }
         current_state: { $ref: "#/components/schemas/State" }
         change_owner_id: { type: string, format: uuid }
         change_owner_name: { type: string }
+        last_updated_by_id: { type: string, format: uuid }
+        last_updated_by_name: { type: string }
         implementation_approval_status:
           { $ref: "#/components/schemas/ApprovalStatus" }
         final_approval_status: { $ref: "#/components/schemas/ApprovalStatus" }
@@ -972,11 +1054,23 @@ paths:
               schema: { $ref: "#/components/schemas/RefreshResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401":
-          description: Unknown, revoked, expired or idle-timed-out token. Sign in again.
+          description: |
+            **Three distinct causes, and the message says which.** All three end
+            the session, but only the first two are worth offering a sign-in for.
+
+            | `error` | Cause |
+            |---|---|
+            | `Invalid refresh token` | Not found, or already revoked |
+            | `Session expired` | 24 h absolute reached, **or** 2 h idle |
+            | `Account is deactivated` | The user's `is_active` is false |
+
+            `is_active` is re-checked here and on every authenticated request, so
+            a deactivated user is stopped immediately rather than at access-token
+            expiry. Signing in again returns the same message.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-              example: { error: Invalid or expired refresh token }
+              example: { error: Session expired }
         "500": { $ref: "#/components/responses/ServerError" }
 
   /revoke:
@@ -985,9 +1079,18 @@ paths:
       summary: Sign out
       security: []
       description: |
-        **Idempotent** — returns 204 whether the token was valid, already
-        revoked, or never existed. Logging out should never fail, and identical
-        responses stop a prober learning whether a token is real.
+        **Idempotent across every token state** — 204 whether the token was
+        valid, already revoked, or never existed. Identical responses stop a
+        prober learning whether a token is real.
+
+        ⚠️ **A blank or missing `refresh_token` is a 400**, not a 204 — the body
+        is validated before the token is looked up. Idempotency covers what the
+        token *is*, not whether one was sent. A client with nothing in storage
+        should skip the call rather than send `""`, and should clear local state
+        regardless.
+
+        Revokes only the token in the body. **Login does not revoke prior
+        tokens**, so other sessions survive; there is no sign-out-everywhere.
       requestBody:
         required: true
         content:
@@ -1006,10 +1109,10 @@ paths:
       summary: The current user
       responses:
         "200":
-          description: The authenticated user.
+          description: The authenticated user. Four fields — no `is_active`, no timestamp.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UserResponse" }
+              schema: { $ref: "#/components/schemas/MeResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /users:
@@ -1020,9 +1123,13 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/offset"
-        - name: is_active
+        - name: active
           in: query
-          description: Omit for all users.
+          description: |
+            ⚠️ **`active`, not `is_active`.** The response field is `is_active`
+            but the query parameter is not — the handler reads `active`, and an
+            unrecognised parameter is ignored silently, so `?is_active=true`
+            returns every user with no error. Omit for all users.
           schema: { type: boolean }
       responses:
         "200":
@@ -1086,10 +1193,12 @@ paths:
             schema: { $ref: "#/components/schemas/UpdateUserRequest" }
       responses:
         "200":
-          description: Updated. Returned unchanged if nothing differed.
+          description: |
+            Updated. Returned unchanged if nothing differed. Carries
+            `updated_on`, **not** `created_on`.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UserResponse" }
+              schema: { $ref: "#/components/schemas/UserStatusResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
@@ -1126,10 +1235,10 @@ paths:
             schema: { $ref: "#/components/schemas/SetUserActiveRequest" }
       responses:
         "200":
-          description: Updated.
+          description: Updated. Carries `updated_on`, **not** `created_on`.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UserResponse" }
+              schema: { $ref: "#/components/schemas/UserStatusResponse" }
         "400":
           description: Attempting to deactivate oneself.
           content:
@@ -1158,12 +1267,7 @@ paths:
           description: Approvers, sorted by name.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  approvers:
-                    type: array
-                    items: { $ref: "#/components/schemas/ApproverRef" }
+              schema: { $ref: "#/components/schemas/ListApproversResponse" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "500": { $ref: "#/components/responses/ServerError" }
 

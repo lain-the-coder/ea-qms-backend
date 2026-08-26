@@ -1,2 +1,5 @@
 .env
 logs/
+# Build output
+server.exe
+ea-qms-backend
