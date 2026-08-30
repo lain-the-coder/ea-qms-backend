@@ -38,17 +38,26 @@ func main() {
 	}
 	slog.SetDefault(logger)
 
-	// load .env file
-	err = godotenv.Load()
-	if err != nil {
-		logger.Error("error loading .env file", "error", err)
-		os.Exit(1)
+	// Load .env if present (convenient for local bare-metal runs).
+	// In Docker/Production, variables are injected directly into the environment.
+	if err := godotenv.Load(); err != nil {
+		logger.Info(".env file not present on disk, relying on system environment variables")
 	}
-
 	// load config struct with env variables
 	dbURL := os.Getenv("DB_URL")
-	platform := os.Getenv("PLATFORM")
+	if dbURL == "" {
+		logger.Error("required environment variable DB_URL is missing")
+		os.Exit(1)
+	}
 	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		logger.Error("required environment variable JWT_SECRET is missing")
+		os.Exit(1)
+	}
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		platform = "dev"
+	}
 	// CORS — browsers refuse cross-origin requests unless the response says the
 	// origin is permitted. Postman and curl are unaffected; they are not browsers.
 	allowedOrigins := make(map[string]struct{})
@@ -92,6 +101,8 @@ func main() {
 		dummyHash:      dummyHash,
 		allowedOrigins: allowedOrigins,
 	}
+	// health check route
+	mux.Handle("GET /api/healthz", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerHealthz)))
 	// authentication routes
 	mux.Handle("POST /api/login", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
 	mux.Handle("POST /api/refresh", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRefresh)))
