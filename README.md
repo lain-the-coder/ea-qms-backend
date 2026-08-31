@@ -148,6 +148,18 @@ The multi-stage build compiles a static Linux binary (CGO_ENABLED=0) stripped of
 
 A dedicated health check (GET /api/healthz) performs an active rawDB.PingContext() check for orchestrator readiness and liveness verification without polluting route logs.
 
+### Docker Compose (Full Stack)
+
+If you want to spin up the entire backend stack (API, PostgreSQL, schema migrations, and seeded test accounts) using Docker without configuring a local Go or PostgreSQL toolchain:
+
+1. Navigate to the Docker deployment directory:
+
+```bash
+   cd deploy/docker
+```
+
+2. Follow the setup instructions in [`deploy/docker/README.md`](deploy/docker/README.md) to start the containers via `docker compose up -d`.
+
 ## The API
 
 23 endpoints across seven groups:
@@ -285,3 +297,4 @@ specification lives in
 [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)
 and came first; where the implementation departed from it, the specification was
 amended rather than the deviation left undocumented.
+
