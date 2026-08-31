@@ -20,18 +20,12 @@ draft.
   (T1) ──▶ Initiated ──── T2 ────▶ Pending Impl Approval ─────┘
               │                              │
               │ T3                           │ T4 approve
-              ▼                              │
-          Cancelled                          │       ┌─ T8 reject ─┐
-                                             ▼       ▼             │
-                                        In Implementation          │
-                                             │                     │
-                                             │ T6                  │
-                                             ▼                     │
-                                   Pending Final Approval ─────────┘
-                                             │
-                                             │ T7 approve
-                                             ▼
-                                           Closed
+              ▼                              ▼
+          Cancelled                  In Implementation ◀─────┐
+                                             │                │
+                                             │ T6             │ T8 reject
+                                             ▼                │
+                                    Pending Final Approval ───┘
 
 | #  | From                            | To                              | Action                    | Actor    | E-signature |
 | -- | ------------------------------- | ------------------------------- | ------------------------- | -------- | ----------- |
