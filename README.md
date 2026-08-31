@@ -14,21 +14,29 @@ implemented with evidence attached, submitted for final approval, and closed —
 or rejected at either gate and sent back for rework, or cancelled while still a
 draft.
 
-```
-                    ┌──────────── T5 reject ───────────┐
-                    ▼                                  │
-  (T1) ──▶ Initiated ──T2──▶ Pending Impl Approval ───┤
-              │                                   T4 approve
-              │ T3                                     ▼
-              ▼                            In Implementation ◀── T8 reject ─┤
-          Cancelled                                    │                     │
-                                                       │ T6                  │
-                                                       ▼                     │
-                                            Pending Final Approval ──────────┤
-                                                       │                     
-                                                  T7 approve                 
-                                                       ▼                     
-                                                    Closed
+```mermaid
+stateDiagram-v2
+    direction TB
+
+    state "Pending Implementation Approval" as PendingImpl
+    state "In Implementation" as InImpl
+    state "Pending Final Approval" as PendingFinal
+
+    [*] --> Initiated: T1 · Create
+
+    Initiated --> PendingImpl: T2 · Submit for Approval
+    Initiated --> Cancelled: T3 · Cancel
+
+    PendingImpl --> InImpl: T4 · Approve
+    PendingImpl --> Initiated: T5 · Reject
+
+    InImpl --> PendingFinal: T6 · Submit for Final Approval
+
+    PendingFinal --> Closed: T7 · Approve
+    PendingFinal --> InImpl: T8 · Reject
+
+    Closed --> [*]
+    Cancelled --> [*]
 ```
 
 Four roles — Admin, CC Owner, Approver, Viewer — with permissions that depend on
