@@ -14,18 +14,27 @@ implemented with evidence attached, submitted for final approval, and closed —
 or rejected at either gate and sent back for rework, or cancelled while still a
 draft.
 
+```
+
                     ┌──────────────── T5 reject ───────────────┐
                     │                                          │
                     ▼                                          │
   (T1) ──▶ Initiated ──── T2 ────▶ Pending Impl Approval ─────┘
               │                              │
               │ T3                           │ T4 approve
-              ▼                              ▼
-          Cancelled                  In Implementation ◀─────┐
-                                             │                │
-                                             │ T6             │ T8 reject
-                                             ▼                │
-                                    Pending Final Approval ───┘
+              ▼                              │
+          Cancelled                          │       ┌─ T8 reject ─┐
+                                             ▼       ▼             │
+                                        In Implementation          │
+                                             │                     │
+                                             │ T6                  │
+                                             ▼                     │
+                                   Pending Final Approval ─────────┘
+                                             │
+                                             │ T7 approve
+                                             ▼
+                                           Closed
+```
 
 | #  | From                            | To                              | Action                    | Actor    | E-signature |
 | -- | ------------------------------- | ------------------------------- | ------------------------- | -------- | ----------- |
