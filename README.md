@@ -14,30 +14,35 @@ implemented with evidence attached, submitted for final approval, and closed —
 or rejected at either gate and sent back for rework, or cancelled while still a
 draft.
 
-```mermaid
-stateDiagram-v2
-    direction TB
+                    ┌──────────────── T5 reject ───────────────┐
+                    │                                          │
+                    ▼                                          │
+  (T1) ──▶ Initiated ──── T2 ────▶ Pending Impl Approval ─────┘
+              │                              │
+              │ T3                           │ T4 approve
+              ▼                              │
+          Cancelled                          │       ┌─ T8 reject ─┐
+                                             ▼       ▼             │
+                                        In Implementation          │
+                                             │                     │
+                                             │ T6                  │
+                                             ▼                     │
+                                   Pending Final Approval ─────────┘
+                                             │
+                                             │ T7 approve
+                                             ▼
+                                           Closed
 
-    state "Pending Implementation Approval" as PendingImpl
-    state "In Implementation" as InImpl
-    state "Pending Final Approval" as PendingFinal
-
-    [*] --> Initiated: T1 · Create
-
-    Initiated --> PendingImpl: T2 · Submit for Approval
-    Initiated --> Cancelled: T3 · Cancel
-
-    PendingImpl --> InImpl: T4 · Approve
-    PendingImpl --> Initiated: T5 · Reject
-
-    InImpl --> PendingFinal: T6 · Submit for Final Approval
-
-    PendingFinal --> Closed: T7 · Approve
-    PendingFinal --> InImpl: T8 · Reject
-
-    Closed --> [*]
-    Cancelled --> [*]
-```
+| #  | From                            | To                              | Action                    | Actor    | E-signature |
+| -- | ------------------------------- | ------------------------------- | ------------------------- | -------- | ----------- |
+| T1 | —                               | Initiated                       | Create                    | CC Owner | No          |
+| T2 | Initiated                       | Pending Implementation Approval | Submit for Approval       | CC Owner | Yes         |
+| T3 | Initiated                       | Cancelled                       | Cancel                    | CC Owner | Yes         |
+| T4 | Pending Implementation Approval | In Implementation               | Approve                   | Approver | Yes         |
+| T5 | Pending Implementation Approval | Initiated                       | Reject                    | Approver | Yes         |
+| T6 | In Implementation               | Pending Final Approval          | Submit for Final Approval | CC Owner | Yes         |
+| T7 | Pending Final Approval          | Closed                          | Approve                   | Approver | Yes         |
+| T8 | Pending Final Approval          | In Implementation               | Reject                    | Approver | Yes         |
 
 Four roles — Admin, CC Owner, Approver, Viewer — with permissions that depend on
 both the role and the record's current state. A CC Owner can edit twenty-four
