@@ -4,6 +4,7 @@ A Go backend for the Change Control module of a Quality Management System. Chang
 
 **API documentation:** <https://lain-the-coder.github.io/ea-qms-backend/>
 **Specification and UI prototypes:** [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design) · [live prototypes](https://lain-the-coder.github.io/Change-Control-HTML-Design/)
+**Docker Hub:** [`20dumpling/ea-qms-backend`](https://hub.docker.com/r/20dumpling/ea-qms-backend)
 ---
 
 ## What it does
@@ -50,6 +51,7 @@ T1 — creating the record — does not.
 | **Migrations** | [goose](https://github.com/pressly/goose)                                     |
 | **Auth**       | argon2id password hashing, JWT access tokens, opaque refresh tokens           |
 | **Logging**    | `log/slog`, structured JSON, one request ID per request                       |
+| **Deployment** | Docker multi-stage Alpine image (~24MB), Docker Compose                       |
 
 No ORM, no service layer, no repository layer. A handler talks to sqlc, which
 talks to Postgres.
@@ -127,6 +129,24 @@ go build -o ea-qms-backend .
 The API documentation is compiled into the binary with `go:embed`, so it deploys
 with the code it describes. The binary still needs a reachable database and a
 `.env` in the working directory.
+
+### Docker
+
+Pull and run the pre-built image directly from Docker Hub:
+
+```bash
+docker pull 20dumpling/ea-qms-backend:latest
+```
+
+Build locally:
+
+```bash
+docker build -t 20dumpling/ea-qms-backend:latest .
+```
+
+The multi-stage build compiles a static Linux binary (CGO_ENABLED=0) stripped of DWARF symbols (-ldflags="-w -s"), packing the runtime onto alpine:latest for a minimal 24 MB image footprint.
+
+A dedicated health check (GET /api/healthz) performs an active rawDB.PingContext() check for orchestrator readiness and liveness verification without polluting route logs.
 
 ## The API
 
