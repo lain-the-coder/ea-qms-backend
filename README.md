@@ -59,9 +59,8 @@ T1 — creating the record — does not.
 
 ## Stack
 
-|                |                                                                               |
 | -------------- | ----------------------------------------------------------------------------- |
-| **Language**   | Go 1.22                                                                       |
+| **Language**   | Go 1.22+                                                                       |
 | **HTTP**       | `net/http` + `ServeMux` — no framework                                        |
 | **Database**   | PostgreSQL 14, `lib/pq`                                                       |
 | **Queries**    | [sqlc](https://sqlc.dev) — SQL is written by hand and Go is generated from it |
