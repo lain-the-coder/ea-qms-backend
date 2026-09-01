@@ -59,6 +59,7 @@ T1 — creating the record — does not.
 
 ## Stack
 
+|                |                                                                               |
 | -------------- | ----------------------------------------------------------------------------- |
 | **Language**   | Go 1.22+                                                                       |
 | **HTTP**       | `net/http` + `ServeMux` — no framework                                        |
@@ -313,4 +314,3 @@ specification lives in
 [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)
 and came first; where the implementation departed from it, the specification was
 amended rather than the deviation left undocumented.
-
