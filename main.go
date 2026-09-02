@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/joho/godotenv"
@@ -28,7 +29,6 @@ type apiConfig struct {
 
 func main() {
 	mux := http.NewServeMux()
-
 	// build logger
 	logger, err := logging.NewLogger("logs")
 	if err != nil {
@@ -37,7 +37,6 @@ func main() {
 		os.Exit(1)
 	}
 	slog.SetDefault(logger)
-
 	// Load .env if present (convenient for local bare-metal runs).
 	// In Docker/Production, variables are injected directly into the environment.
 	if err := godotenv.Load(); err != nil {
@@ -84,6 +83,18 @@ func main() {
 		logger.Error("Database initialization failed (check driver registration or URL format)", "error", err)
 		os.Exit(1)
 	}
+	// Bound the connection pool. Each replica holds its own pool, so the real
+	// ceiling is (replicas × maxConns) against Postgres max_connections.
+	// Configurable so replica count can change without a rebuild.
+	maxConns := 10
+	if val, ok := parseUintConfig("DB_MAX_OPEN_CONNS", 32); ok && val > 0 {
+		maxConns = int(val)
+	}
+	rawDB.SetMaxOpenConns(maxConns)
+	rawDB.SetMaxIdleConns(maxConns)
+	rawDB.SetConnMaxIdleTime(5 * time.Minute)
+	rawDB.SetConnMaxLifetime(1 * time.Hour)
+	logger.Info("database pool configured", "max_open_conns", maxConns)
 	err = rawDB.Ping()
 	if err != nil {
 		logger.Error("Database connection failed (check network, credentials, or server status)", "error", err)

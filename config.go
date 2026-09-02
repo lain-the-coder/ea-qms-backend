@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -17,7 +17,11 @@ func parseUintConfig(key string, bitSize int) (uint64, bool) {
 
 	val, err := strconv.ParseUint(valStr, 10, bitSize)
 	if err != nil {
-		log.Fatalf("FATAL CONFIG ERROR: Invalid environment variable %s=%q. Expected an integer. Error: %v", key, valStr, err)
+		slog.Error("invalid environment variable, expected a positive integer",
+			"key", key,
+			"value", valStr,
+			"error", err)
+		os.Exit(1)
 	}
 
 	return val, true
