@@ -50,6 +50,8 @@ own — not because a block looks big.
 
 **Part VI — Working practice** 16. [Migrations](#16-migrations) 17. [Testing](#17-testing) 18. [Documentation discipline](#18-documentation-discipline)
 
+**Part VII — Running it** 19. [Bounded resources](#19-bounded-resources)
+
 ---
 
 # Part I — Approach
@@ -1743,6 +1745,82 @@ user-typed content with no reason to be in a log file.
 **Middleware logs the request lifecycle and identity. Handlers log decisions and
 failures.** A handler with no branches staying silent is correct, not a gap.
 
+### 15.9 Logging is the outermost middleware
+
+Anything outside it is invisible.
+
+Applied per route, logging never runs when the mux matches nothing — so an unmatched
+path produces **no line at all**. Any middleware that answers and returns early, as CORS
+does for preflights, escapes for the same reason.
+
+```go
+// Avoid — a 404 and every preflight vanish
+mux.Handle("GET /api/me", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
+```
+
+```go
+// Prefer — wrap the mux, and wrap the other middleware in turn
+mux.Handle("GET /api/me", cfg.middlewareAuth(cfg.HandlerGetMe))
+
+server := &http.Server{
+	Handler: cfg.middlewareLogging(cfg.middlewareCORS(mux)),
+}
+```
+
+**The nesting direction matters as much as the placement.** Logging outermost also means
+every other middleware can reach a request-scoped logger from the context; one that calls
+`LoggerFrom` while sitting _outside_ logging gets the default logger and silently loses
+the request ID.
+
+### 15.10 Capture the status by wrapping the ResponseWriter
+
+`http.ResponseWriter` is write-only. `WriteHeader` serialises the code onto the
+connection and `net/http` keeps no record of it, so middleware has nothing to query after
+`ServeHTTP` returns — and a 404, a 401 and a 200 are indistinguishable in the log.
+
+```go
+type responseRecorder struct {
+	http.ResponseWriter // embedded: Header and Write are promoted, untouched
+	status int
+}
+
+func (rec *responseRecorder) WriteHeader(status int) {
+	rec.status = status                    // observe
+	rec.ResponseWriter.WriteHeader(status) // then do the real thing
+}
+```
+
+Pass the recorder downstream, read `rec.status` afterwards. **Initialise it to 200:** a
+handler that calls `Write` without `WriteHeader` causes `net/http` to send 200 implicitly,
+and the log should record what the client actually received.
+
+This is the standard idiom, not a workaround — chi, gorilla, Echo and Gin all do it and
+merely hide the wrapper behind a `Status()` accessor. Without a framework the plumbing is
+visible; that is the trade, not a defect.
+
+**The cost: wrapping hides the other interfaces.** The underlying writer also satisfies
+`http.Flusher` and `http.Hijacker`; the wrapper does not, so a type assertion for either
+now fails. Add a passthrough before building anything that streams or upgrades.
+
+### 15.11 Set response headers before anything writes
+
+Once `WriteHeader` has been called the header map is frozen and a later `Set` is a
+**silent** no-op — no error, no panic, the header is simply absent from the response.
+
+Any header a middleware adds belongs at the top of that middleware, before
+`next.ServeHTTP`. Stated for `Content-Disposition` at 41; the rule is general.
+
+### 15.12 Identify the process in every log line
+
+At a single instance this is a constant and looks like noise. Replicated, it is the only
+way to answer _which process served this_ — an aggregated stream is otherwise
+undifferentiated, and "one instance is failing while the others are fine" is invisible.
+
+Resolve from the environment with a hostname fallback. Under Docker the hostname is the
+**container ID**, not the `--name` value, so set the variable explicitly per container.
+Return it as a response header as well: it turns a client-side report into a line you can
+grep.
+
 ---
 
 # Part VI — Working practice
@@ -1958,6 +2036,90 @@ comment it. Otherwise the code says it already.
 
 `(FR-6.2.31)`, `(BR-8.8.3)`, `(§6.6.2)`. It turns "why is this here?" into a
 lookup, and marks the line as deliberate rather than incidental.
+
+---
+
+# Part VII — Running it
+
+## 19. Bounded resources
+
+### 19.1 Bounded resources degrade; unbounded resources collapse
+
+An unbounded pool under contention returns `FATAL: sorry, too many clients already` — a
+hard error the caller receives. A bounded pool under the same contention makes request
+N+1 **wait**.
+
+Same overload, two entirely different failure modes, and the second is almost always the
+one you want. A slow request is recoverable where a failed one usually is not, and the
+queue now sits **inside your own process**, where it can be observed and shaped, rather
+than arriving at a shared resource as a wall.
+
+This generalises well past connection pools — it is the same reasoning behind queue depth
+and backpressure anywhere else.
+
+### 19.2 A per-process limit multiplies; the resource it consumes does not
+
+```go
+rawDB.SetMaxOpenConns(maxConns)  // per process
+// Postgres max_connections      // global, across every client
+```
+
+Each replica holds its own pool and cannot see its peers. Three replicas at 25 is 75
+against a budget of roughly 97. A fourth takes it to 100, nothing warns you, and the
+symptom appears at the **database** rather than at the service that caused it.
+
+The corollary catches people out: this also bites under **vertical** scaling. A bigger
+machine handles more concurrency, so the pool grows — while the database ceiling has not
+moved.
+
+The number belongs in the environment rather than the source, because replica count
+changes without a rebuild.
+
+### 19.3 Configure the pool between `Open` and `Ping`
+
+`Ping` opens a real connection and returns it to the pool. Configure afterwards and that
+first connection was created under the defaults.
+
+**Open → configure → verify.**
+
+### 19.4 A constraint must be expressed at a layer that knows enough to vary it
+
+`ReadTimeout` is a field on `http.Server`. The clock starts when the connection is
+accepted — before the mux has read the request line and matched a route — so it **cannot**
+be varied per route. Since it covers the request body, any value tight enough to defend
+against a slow client also truncates a legitimate large upload.
+
+So each bound moves to the layer that has the knowledge:
+
+| Concern        | Layer                                | Why                                               |
+| -------------- | ------------------------------------ | ------------------------------------------------- |
+| Slow headers   | `ReadHeaderTimeout` on the server    | Headers are identical in shape across every route |
+| Body size      | `http.MaxBytesReader` in the handler | The handler knows which route it is               |
+| Response write | `WriteTimeout` on the server         | Tuned to the largest legitimate response          |
+| Work duration  | `context.WithTimeout` in middleware  | Propagates into the driver                        |
+
+### 19.5 A connection-level timeout does not stop a handler
+
+`WriteTimeout` bounds the connection from the outside. The goroutine keeps running and its
+pool connection stays checked out. Only a **context deadline** reaches the driver, because
+every sqlc call and `BeginTx` takes `r.Context()`.
+
+This is what makes 19.1 true rather than aspirational: bounding a pool converts contention
+into queueing **only if connections come back to be queued for**. A leaked connection is
+not queued for — it is simply gone until the process restarts.
+
+`defer cancel()` on the line after `WithTimeout`, always. Without it the timer and its
+goroutine outlive every request.
+
+### 19.6 Statelessness is a property you should be able to name
+
+A process is horizontally scalable when it holds nothing between requests that another
+instance would need: configuration from the environment, sessions in a token or a shared
+store, uploads read and written within the request.
+
+Worth stating explicitly, because it is easy to have by accident and easy to lose by
+accident — one in-memory cache or counter added later, and the property is gone without
+anything failing at one instance.
 
 ---
 

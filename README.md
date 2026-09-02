@@ -35,18 +35,19 @@ draft.
                                              │ T7 approve
                                              ▼
                                            Closed
+
 ```
 
-| #  | From                            | To                              | Action                    | Actor    | E-signature |
-| -- | ------------------------------- | ------------------------------- | ------------------------- | -------- | ----------- |
-| T1 | —                               | Initiated                       | Create                    | CC Owner | No          |
-| T2 | Initiated                       | Pending Implementation Approval | Submit for Approval       | CC Owner | Yes         |
-| T3 | Initiated                       | Cancelled                       | Cancel                    | CC Owner | Yes         |
-| T4 | Pending Implementation Approval | In Implementation               | Approve                   | Approver | Yes         |
-| T5 | Pending Implementation Approval | Initiated                       | Reject                    | Approver | Yes         |
-| T6 | In Implementation               | Pending Final Approval          | Submit for Final Approval | CC Owner | Yes         |
-| T7 | Pending Final Approval          | Closed                          | Approve                   | Approver | Yes         |
-| T8 | Pending Final Approval          | In Implementation               | Reject                    | Approver | Yes         |
+| #   | From                            | To                              | Action                    | Actor    | E-signature |
+| --- | ------------------------------- | ------------------------------- | ------------------------- | -------- | ----------- |
+| T1  | —                               | Initiated                       | Create                    | CC Owner | No          |
+| T2  | Initiated                       | Pending Implementation Approval | Submit for Approval       | CC Owner | Yes         |
+| T3  | Initiated                       | Cancelled                       | Cancel                    | CC Owner | Yes         |
+| T4  | Pending Implementation Approval | In Implementation               | Approve                   | Approver | Yes         |
+| T5  | Pending Implementation Approval | Initiated                       | Reject                    | Approver | Yes         |
+| T6  | In Implementation               | Pending Final Approval          | Submit for Final Approval | CC Owner | Yes         |
+| T7  | Pending Final Approval          | Closed                          | Approve                   | Approver | Yes         |
+| T8  | Pending Final Approval          | In Implementation               | Reject                    | Approver | Yes         |
 
 Four roles — Admin, CC Owner, Approver, Viewer — with permissions that depend on
 both the role and the record's current state. A CC Owner can edit twenty-four
@@ -61,7 +62,7 @@ T1 — creating the record — does not.
 
 |                |                                                                               |
 | -------------- | ----------------------------------------------------------------------------- |
-| **Language**   | Go 1.22+                                                                       |
+| **Language**   | Go 1.22+                                                                      |
 | **HTTP**       | `net/http` + `ServeMux` — no framework                                        |
 | **Database**   | PostgreSQL 14, `lib/pq`                                                       |
 | **Queries**    | [sqlc](https://sqlc.dev) — SQL is written by hand and Go is generated from it |
@@ -97,9 +98,24 @@ DB_URL=postgres://postgres:password@localhost:5432/ea_qms?sslmode=disable
 JWT_SECRET=<a long random string>
 PLATFORM=dev
 ALLOWED_ORIGINS=http://localhost:5173
+DB_MAX_OPEN_CONNS=25
 ```
 
 Generate a secret with `openssl rand -base64 64`.
+
+**Do not quote values.** `godotenv` strips surrounding quotes, but `docker run --env-file`
+and Compose's `env_file` do not — a quoted `JWT_SECRET` would carry literal quote
+characters into the container, and a token signed on bare metal would then fail to
+validate there. Unquoted is the only form that works in all three.
+
+`DB_MAX_OPEN_CONNS` is the connection-pool ceiling **per process**, defaulting to 10 if
+unset. Running N instances against one database means N × this value, which must stay
+under Postgres's `max_connections`.
+
+`INSTANCE_ID` is optional and unnecessary here — it identifies which replica served a
+request, and falls back to the hostname when unset. It matters only when the API runs as
+more than one instance, and is set per container rather than in this file, since
+`docker run --name` does not set a container's hostname.
 
 **Run the migrations:**
 
@@ -234,6 +250,18 @@ closures. This costs length — the save-draft handler is around 700 lines — a
 buys the ability to `grep` for a field name and land on the code that handles it.
 The trade is deliberate, and the guide argues it properly.
 
+**Bounds are per-process; the resources they consume are not.** `sql.Open` defaults
+to an unlimited pool, which is survivable for one process and wrong for several —
+each instance holds its own pool and cannot see its peers, while Postgres enforces
+one global `max_connections`. The pool is bounded and its ceiling read from the
+environment, so contention produces queueing inside the process rather than
+`too many clients` at the database: bounded resources degrade, unbounded ones
+collapse. The same reasoning sets the server's timeouts, and explains why
+`ReadTimeout` is deliberately left unset — it is a property of the server, which
+has not yet matched a route, so a value strict enough to be useful against a slow
+client would also truncate a legitimate evidence upload. Body size is bounded in
+the handler, which does know which route it is.
+
 ## Project layout
 
 ```
@@ -257,7 +285,7 @@ The trade is deliberate, and the guide argues it properly.
 
 |                                                  |                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [`GO_Coding_Guide.md`](GO_Coding_Guide.md)       | 18 sections, 114 rules, each with code and the trade it makes                                                 |
+| [`GO_Coding_Guide.md`](GO_Coding_Guide.md)       | 19 sections, 124 rules, each with code and the trade it makes                                                 |
 | [`docs/openapi.yaml`](docs/openapi.yaml)         | The API contract                                                                                              |
 | [`FRONTEND_BLUEPRINT.md`](FRONTEND_BLUEPRINT.md) | The API contract from a client's perspective, plus the frontend plan                                          |
 | `PROGRESS.md`                                    | Every decision made during the build, with its reasoning — including the ones that reversed earlier decisions |
@@ -304,6 +332,15 @@ Known deferred work: log rotation, a configurable business timezone (date rules
 currently compute in UTC), a cleanup job for expired refresh tokens, and
 extracting the signature-verification block that is currently repeated across
 five transition handlers.
+
+Also deferred, from the resource-bounds work: mapping `context.DeadlineExceeded`
+to 504 and reclassifying `context.Canceled` as a client disconnect rather than a
+server error — one edit repeated at every database call site, so a timed-out
+request currently returns 500 and is identifiable only by its duration; a
+`Flusher` / `Hijacker` passthrough on the response recorder, which nothing needs
+until the first streaming or WebSocket endpoint; and writing logs to stdout rather
+than a file, which is the correct destination once the process runs in a container
+and its filesystem is discarded with it.
 
 ## Context
 
