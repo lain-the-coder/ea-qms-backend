@@ -17,18 +17,18 @@ type authedHandler func(http.ResponseWriter, *http.Request, database.User)
 func (cfg *apiConfig) middlewareLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
+		w.Header().Set("X-Instance-ID", cfg.instanceID)
 		// generate unique ID and derive child logger with attached attribute
 		requestID := uuid.NewString()
-		reqLogger := cfg.logger.With("request_id", requestID)
-
+		reqLogger := cfg.logger.With(
+			"request_id", requestID,
+			"instance_id", cfg.instanceID,
+		)
 		ctx := logging.ContextWithLogger(r.Context(), reqLogger)
 		r = r.WithContext(ctx)
-
 		reqLogger.Info("request started", "method", r.Method, "path", r.URL.Path)
 		// Pass control downstream
 		next.ServeHTTP(w, r)
-
 		reqLogger.Info("request finished",
 			"method", r.Method,
 			"path", r.URL.Path,
@@ -124,13 +124,12 @@ func (cfg *apiConfig) middlewareCORS(next http.Handler) http.Handler {
 
 			// Lets JavaScript read these on a download response; without it the
 			// browser hides every header except a short safelist.
-			w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
-
+			w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length, X-Instance-ID")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		// Same exposure for the actual response, so a download can read the filename.
-		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length")
+		w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length, X-Instance-ID")
 		next.ServeHTTP(w, r)
 	})
 }

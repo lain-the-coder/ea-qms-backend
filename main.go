@@ -25,6 +25,7 @@ type apiConfig struct {
 	logger         *slog.Logger
 	dummyHash      string
 	allowedOrigins map[string]struct{}
+	instanceID     string
 }
 
 func main() {
@@ -56,6 +57,16 @@ func main() {
 	platform := os.Getenv("PLATFORM")
 	if platform == "" {
 		platform = "dev"
+	}
+	// Identifies which replica served a request. Set explicitly per container;
+	// falls back to the hostname, which Docker sets to the container ID.
+	instanceID := os.Getenv("INSTANCE_ID")
+	if instanceID == "" {
+		if h, err := os.Hostname(); err == nil {
+			instanceID = h
+		} else {
+			instanceID = "unknown"
+		}
 	}
 	// CORS — browsers refuse cross-origin requests unless the response says the
 	// origin is permitted. Postman and curl are unaffected; they are not browsers.
@@ -94,7 +105,7 @@ func main() {
 	rawDB.SetMaxIdleConns(maxConns)
 	rawDB.SetConnMaxIdleTime(5 * time.Minute)
 	rawDB.SetConnMaxLifetime(1 * time.Hour)
-	logger.Info("database pool configured", "max_open_conns", maxConns)
+	logger.Info("database pool configured", "max_open_conns", maxConns, "instance_id", instanceID)
 	err = rawDB.Ping()
 	if err != nil {
 		logger.Error("Database connection failed (check network, credentials, or server status)", "error", err)
@@ -111,61 +122,49 @@ func main() {
 		logger:         logger,
 		dummyHash:      dummyHash,
 		allowedOrigins: allowedOrigins,
+		instanceID:     instanceID,
 	}
 	// health check route
-	mux.Handle("GET /api/healthz", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerHealthz)))
+	mux.Handle("GET /api/healthz", http.HandlerFunc(cfg.HandlerHealthz))
 	// authentication routes
-	mux.Handle("POST /api/login", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
-	mux.Handle("POST /api/refresh", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRefresh)))
-	mux.Handle("POST /api/revoke", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerRevoke)))
+	mux.Handle("POST /api/login", http.HandlerFunc(cfg.HandlerLogin))
+	mux.Handle("POST /api/refresh", http.HandlerFunc(cfg.HandlerRefresh))
+	mux.Handle("POST /api/revoke", http.HandlerFunc(cfg.HandlerRevoke))
 	// user routes
-	mux.Handle("GET /api/me", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
-	mux.Handle("GET /api/approvers", cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListApprovers)))
-	mux.Handle("POST /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser))))
-	mux.Handle("GET /api/users", cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerListUsers))))
+	mux.Handle("GET /api/me", cfg.middlewareAuth(cfg.HandlerGetMe))
+	mux.Handle("GET /api/approvers", cfg.middlewareAuth(cfg.HandlerListApprovers))
+	mux.Handle("POST /api/users", cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser)))
+	mux.Handle("GET /api/users", cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerListUsers)))
 	mux.Handle("PUT /api/users/{userID}/active",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus))))
+		cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserStatus)))
 	mux.Handle("PUT /api/users/{userID}",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserDetails))))
-	mux.Handle("GET /api/dashboard",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerDashboard)))
+		cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerUpdateUserDetails)))
+	mux.Handle("GET /api/dashboard", cfg.middlewareAuth(cfg.HandlerDashboard))
 	// change control routes
 	mux.Handle("POST /api/changecontrols",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleCCOwner, cfg.HandlerCreateChangeControl))))
-	mux.Handle("GET /api/changecontrols/{ccID}",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetChangeControl)))
-	mux.Handle("GET /api/changecontrols",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListChangeControls)))
-	mux.Handle("PUT /api/changecontrols/{ccID}",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSaveDraft)))
-	mux.Handle("PUT /api/changecontrols/{ccID}/implementation",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSaveImplementationDetails)))
+		cfg.middlewareAuth(cfg.requireRole(roleCCOwner, cfg.HandlerCreateChangeControl)))
+	mux.Handle("GET /api/changecontrols/{ccID}", cfg.middlewareAuth(cfg.HandlerGetChangeControl))
+	mux.Handle("GET /api/changecontrols", cfg.middlewareAuth(cfg.HandlerListChangeControls))
+	mux.Handle("PUT /api/changecontrols/{ccID}", cfg.middlewareAuth(cfg.HandlerSaveDraft))
+	mux.Handle("PUT /api/changecontrols/{ccID}/implementation", cfg.middlewareAuth(cfg.HandlerSaveImplementationDetails))
 	// workflow routes
-	mux.Handle("POST /api/changecontrols/{ccID}/submit",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSubmitForImplApproval)))
-	mux.Handle("POST /api/changecontrols/{ccID}/cancel",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerCancelChangeControl)))
-	mux.Handle("POST /api/changecontrols/{ccID}/decision",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerImplementationDecision)))
-	mux.Handle("POST /api/changecontrols/{ccID}/submit-final",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerSubmitForFinalApproval)))
-	mux.Handle("POST /api/changecontrols/{ccID}/final-decision",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerFinalDecision)))
-	mux.Handle("GET /api/changecontrols/{ccID}/signatures",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerListSignatures)))
+	mux.Handle("POST /api/changecontrols/{ccID}/submit", cfg.middlewareAuth(cfg.HandlerSubmitForImplApproval))
+	mux.Handle("POST /api/changecontrols/{ccID}/cancel", cfg.middlewareAuth(cfg.HandlerCancelChangeControl))
+	mux.Handle("POST /api/changecontrols/{ccID}/decision", cfg.middlewareAuth(cfg.HandlerImplementationDecision))
+	mux.Handle("POST /api/changecontrols/{ccID}/submit-final", cfg.middlewareAuth(cfg.HandlerSubmitForFinalApproval))
+	mux.Handle("POST /api/changecontrols/{ccID}/final-decision", cfg.middlewareAuth(cfg.HandlerFinalDecision))
+	mux.Handle("GET /api/changecontrols/{ccID}/signatures", cfg.middlewareAuth(cfg.HandlerListSignatures))
 	// file attachment routes
-	mux.Handle("POST /api/changecontrols/{ccID}/files/{fieldName}",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerUploadFile)))
-	mux.Handle("GET /api/changecontrols/{ccID}/files/{fieldName}",
-		cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerDownloadFile)))
+	mux.Handle("POST /api/changecontrols/{ccID}/files/{fieldName}", cfg.middlewareAuth(cfg.HandlerUploadFile))
+	mux.Handle("GET /api/changecontrols/{ccID}/files/{fieldName}", cfg.middlewareAuth(cfg.HandlerDownloadFile))
 	// API documentation — public, no auth. Swagger UI cannot send a bearer
 	// token to fetch its own spec.
-	mux.Handle("GET /docs", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerDocsPage)))
-	mux.Handle("GET /docs/openapi.yaml", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
-	mux.Handle("GET /openapi.yaml", cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
+	mux.Handle("GET /docs", http.HandlerFunc(cfg.HandlerDocsPage))
+	mux.Handle("GET /docs/openapi.yaml", http.HandlerFunc(cfg.HandlerOpenAPISpec))
+	mux.Handle("GET /openapi.yaml", http.HandlerFunc(cfg.HandlerOpenAPISpec))
 	server := &http.Server{
 		Addr:    ":1304",
-		Handler: cfg.middlewareCORS(mux),
+		Handler: cfg.middlewareLogging(cfg.middlewareCORS(mux)),
 	}
 	logger.Error("server failed", "error", server.ListenAndServe())
 	os.Exit(1)
