@@ -21,13 +21,21 @@ services:
     working_dir: /migrations
     volumes:
       - ./sql/schema:/migrations
-    entrypoint: ["goose", "-dir", "/migrations", "postgres", "postgres://postgres:1234@db:5432/ea_qms?sslmode=disable", "up"]
+    entrypoint:
+      [
+        "goose",
+        "-dir",
+        "/migrations",
+        "postgres",
+        "postgres://postgres:1234@db:5432/ea_qms?sslmode=disable",
+        "up",
+      ]
     depends_on:
       db:
         condition: service_healthy
 
   api:
-    image: 20dumpling/ea-qms-backend:1.0.0
+    image: 20dumpling/ea-qms-backend:1.1.0
     container_name: qms-api
     restart: unless-stopped
     ports:
