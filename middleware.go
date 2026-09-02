@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -30,6 +31,14 @@ func (cfg *apiConfig) middlewareLogging(next http.Handler) http.Handler {
 			"instance_id", cfg.instanceID,
 		)
 		ctx := logging.ContextWithLogger(r.Context(), reqLogger)
+		// Request-scoped deadline. Unlike the server's WriteTimeout, which only
+		// bounds the connection, this propagates into every sqlc call — a query
+		// that hangs is cancelled and its pool connection returned rather than
+		// held for the life of the process. Set to match WriteTimeout, since
+		// nothing can usefully outlive the connection, and high enough that a
+		// 10 MB upload on a slow link is not cut short.
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
 		r = r.WithContext(ctx)
 		reqLogger.Info("request started", "method", r.Method, "path", r.URL.Path)
 		// Pass control downstream
