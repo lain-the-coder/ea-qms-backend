@@ -163,8 +163,11 @@ func main() {
 	mux.Handle("GET /docs/openapi.yaml", http.HandlerFunc(cfg.HandlerOpenAPISpec))
 	mux.Handle("GET /openapi.yaml", http.HandlerFunc(cfg.HandlerOpenAPISpec))
 	server := &http.Server{
-		Addr:    ":1304",
-		Handler: cfg.middlewareLogging(cfg.middlewareCORS(mux)),
+		Addr:              ":1304",
+		Handler:           cfg.middlewareLogging(cfg.middlewareCORS(mux)),
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	logger.Error("server failed", "error", server.ListenAndServe())
 	os.Exit(1)
