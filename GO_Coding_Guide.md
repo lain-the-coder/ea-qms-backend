@@ -911,40 +911,59 @@ That is the whole design: the compiler enforces it, not discipline.
 
 ```go
 // 1 — public
-mux.Handle("POST /api/login",
-    cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerLogin)))
+mux.Handle("POST /api/login", http.HandlerFunc(cfg.HandlerLogin))
 
 // 2 — authenticated
-mux.Handle("GET /api/me",
-    cfg.middlewareLogging(cfg.middlewareAuth(cfg.HandlerGetMe)))
+mux.Handle("GET /api/me", cfg.middlewareAuth(cfg.HandlerGetMe))
 
 // 3 — authenticated + role
 mux.Handle("POST /api/users",
-    cfg.middlewareLogging(cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser))))
+    cfg.middlewareAuth(cfg.requireRole(roleAdmin, cfg.HandlerCreateUser)))
 ```
 
 Variation 2 needs no `http.HandlerFunc` wrap — `middlewareAuth` already returns a
 handler.
 
-Two things sit outside this pattern, both deliberately:
+**Only per-route concerns appear here.** Authentication and role checks belong to a
+route, so they are registered with it. Logging and CORS do not — they wrap the mux
+(9.2a), and attaching a mux-level concern per route silently loses every request the
+mux does not match.
 
 ```go
-// CORS wraps the WHOLE MUX, not a route. A preflight OPTIONS arrives on a path
-// with no registered handler, and per-route middleware never runs when no route
-// matches — so the browser would get a 404 where it expects permission headers.
-server := &http.Server{ Addr: ":1304", Handler: cfg.middlewareCORS(mux) }
-
 // The documentation is public and outside /api. Swagger UI cannot send a bearer
 // token to fetch its own specification, and documentation is not API surface.
-mux.Handle("GET /docs",
-    cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerDocsPage)))
-mux.Handle("GET /docs/openapi.yaml",
-    cfg.middlewareLogging(http.HandlerFunc(cfg.HandlerOpenAPISpec)))
+mux.Handle("GET /docs", http.HandlerFunc(cfg.HandlerDocsPage))
+mux.Handle("GET /docs/openapi.yaml", http.HandlerFunc(cfg.HandlerOpenAPISpec))
 ```
 
-The rule holds for **every route that serves data**. Infrastructure — CORS, static
-documentation — is not a route serving data, and forcing it into the pattern would
-break it: a mux-level concern cannot be attached per route.
+### 9.2a What wraps the mux, and in what order
+
+```go
+server := &http.Server{
+	Addr:              ":1304",
+	Handler:           cfg.middlewareLogging(cfg.middlewareCORS(mux)),
+	ReadHeaderTimeout: 10 * time.Second,
+	WriteTimeout:      30 * time.Second,
+	IdleTimeout:       60 * time.Second,
+}
+```
+
+**Both of these are mux-level, and for the same reason:** a request the mux does not
+match — an unknown path, or a preflight `OPTIONS` on a path with no registered handler —
+never reaches per-route middleware at all. Registered per route, CORS would return a 404
+where the browser expects permission headers, and logging would produce no line at all.
+
+**The order is not arbitrary.** Logging is outermost so that every request is recorded,
+including the preflights CORS answers and returns early, and so that `middlewareCORS` can
+read a request-scoped logger from the context for its rejected-origin warning. Reverse
+them and both properties are lost. See 15.9.
+
+The timeouts are set here because they are properties of the connection, not of a route —
+and 19.4 explains why `ReadTimeout` is deliberately absent from that list.
+
+The rule in 9.2 holds for **every route that serves data**. Infrastructure — logging,
+CORS, static documentation — is not a route serving data, and forcing it into the pattern
+would break it.
 
 ### 9.3 Pass the request logger by context; pass the user by argument
 
@@ -1369,7 +1388,10 @@ if _, err := w.Write(row.FileData); err != nil {
 ```
 
 Log it and return; there is nothing else available. All `w.Header().Set` calls must
-precede `WriteHeader` — afterwards they silently do nothing.
+precede `WriteHeader` — afterwards they silently do nothing. The same constraint binds
+middleware, which runs before the handler and must set its headers first (15.11), and it
+is also why the status has to be captured by wrapping the writer rather than read back
+from it (15.10).
 
 ---
 
@@ -1808,7 +1830,9 @@ Once `WriteHeader` has been called the header map is frozen and a later `Set` is
 **silent** no-op — no error, no panic, the header is simply absent from the response.
 
 Any header a middleware adds belongs at the top of that middleware, before
-`next.ServeHTTP`. Stated for `Content-Disposition` at 41; the rule is general.
+`next.ServeHTTP`. Stated for handlers at 12.7; the rule is general, and it is why
+`X-Instance-ID` is the first statement in `middlewareLogging` rather than sitting
+alongside the logger setup.
 
 ### 15.12 Identify the process in every log line
 

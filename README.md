@@ -68,7 +68,7 @@ T1 — creating the record — does not.
 | **Queries**    | [sqlc](https://sqlc.dev) — SQL is written by hand and Go is generated from it |
 | **Migrations** | [goose](https://github.com/pressly/goose)                                     |
 | **Auth**       | argon2id password hashing, JWT access tokens, opaque refresh tokens           |
-| **Logging**    | `log/slog`, structured JSON, one request ID per request                       |
+| **Logging**    | `log/slog`, structured JSON, one request ID and instance ID per request       |
 | **Deployment** | Docker multi-stage Alpine image (~24MB), Docker Compose                       |
 
 No ORM, no service layer, no repository layer. A handler talks to sqlc, which
@@ -285,10 +285,10 @@ the handler, which does know which route it is.
 
 |                                                  |                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [`GO_Coding_Guide.md`](GO_Coding_Guide.md)       | 19 sections, 124 rules, each with code and the trade it makes                                                 |
+| [`GO_Coding_Guide.md`](GO_Coding_Guide.md)       | 19 sections, 125 rules, each with code and the trade it makes                                                 |
 | [`docs/openapi.yaml`](docs/openapi.yaml)         | The API contract                                                                                              |
 | [`FRONTEND_BLUEPRINT.md`](FRONTEND_BLUEPRINT.md) | The API contract from a client's perspective, plus the frontend plan                                          |
-| `PROGRESS.md`                                    | Every decision made during the build, with its reasoning — including the ones that reversed earlier decisions |
+| [`PROGRESS.md`](PROGRESS.md)                     | Every decision made during the build, with its reasoning — including the ones that reversed earlier decisions |
 
 **In [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)** — the specification this was built against:
 
