@@ -18,6 +18,11 @@ func (cfg *apiConfig) middlewareLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		w.Header().Set("X-Instance-ID", cfg.instanceID)
+		// wrap the real 'w' inside our recorder (default to 200 OK)
+		rec := &responseRecorder{
+			ResponseWriter: w,
+			status:         http.StatusOK, // if handler never explicitly calls WriteHeader, Go defaults to 200
+		}
 		// generate unique ID and derive child logger with attached attribute
 		requestID := uuid.NewString()
 		reqLogger := cfg.logger.With(
@@ -28,10 +33,11 @@ func (cfg *apiConfig) middlewareLogging(next http.Handler) http.Handler {
 		r = r.WithContext(ctx)
 		reqLogger.Info("request started", "method", r.Method, "path", r.URL.Path)
 		// Pass control downstream
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(rec, r)
 		reqLogger.Info("request finished",
 			"method", r.Method,
 			"path", r.URL.Path,
+			"status", rec.status,
 			"duration_ms", time.Since(start).Milliseconds(),
 		)
 	})
