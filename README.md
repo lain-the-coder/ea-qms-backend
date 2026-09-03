@@ -346,7 +346,7 @@ and its filesystem is discarded with it.
 
 Built as a solo project against a full pre-development specification — business
 requirements, a security matrix defining field permissions per role per state, a
-database design, and HTML prototypes for all seventeen screens. That
+database design, and HTML prototypes for all screens. That
 specification lives in
 [Change-Control-HTML-Design](https://github.com/lain-the-coder/Change-Control-HTML-Design)
 and came first; where the implementation departed from it, the specification was
