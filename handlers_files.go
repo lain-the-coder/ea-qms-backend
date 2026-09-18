@@ -8,19 +8,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/lain-the-coder/ea-qms-backend/internal/database"
 	"github.com/lain-the-coder/ea-qms-backend/internal/logging"
 )
 
 func (cfg *apiConfig) HandlerUploadFile(w http.ResponseWriter, r *http.Request, user database.User) {
-	type FileUploadResponse struct {
-		FileName    string    `json:"file_name"`
-		FileSize    int64     `json:"file_size"`
-		ContentType string    `json:"content_type"`
-		UploadedOn  time.Time `json:"uploaded_on"`
-	}
 	log := logging.LoggerFrom(r.Context())
 	// cap the body first, limit is in place when the reading starts
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+1<<20)
@@ -150,7 +143,7 @@ func (cfg *apiConfig) HandlerUploadFile(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	// upsert file attachment
-	fileAttachmentRow, err := qtx.UpsertFileAttachment(r.Context(), database.UpsertFileAttachmentParams{
+	_, err = qtx.UpsertFileAttachment(r.Context(), database.UpsertFileAttachmentParams{
 		ChangeControlID: cc.ID,
 		FieldName:       fieldImplementationEvidence,
 		FileName:        safeFilename,
@@ -173,6 +166,13 @@ func (cfg *apiConfig) HandlerUploadFile(w http.ResponseWriter, r *http.Request, 
 		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
+	// fetch for response
+	row, err := qtx.GetChangeControlByCcID(r.Context(), ccID)
+	if err != nil {
+		log.Error("file upload failed", "reason", "cc re-fetch failed", "cc_id", ccID, "error", err)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
 	// commit
 	err = tx.Commit()
 	if err != nil {
@@ -183,12 +183,7 @@ func (cfg *apiConfig) HandlerUploadFile(w http.ResponseWriter, r *http.Request, 
 	// response
 	log.Info("file uploaded", "cc_id", ccID, "field_name", fieldName,
 		"file_name", safeFilename, "file_size", len(data))
-	respondWithJSON(w, http.StatusOK, FileUploadResponse{
-		FileName:    fileAttachmentRow.FileName,
-		FileSize:    fileAttachmentRow.FileSize,
-		ContentType: fileAttachmentRow.ContentType,
-		UploadedOn:  fileAttachmentRow.UploadedOn,
-	})
+	respondWithJSON(w, http.StatusOK, toChangeControlResponse(row))
 }
 
 func (cfg *apiConfig) HandlerDownloadFile(w http.ResponseWriter, r *http.Request, user database.User) {

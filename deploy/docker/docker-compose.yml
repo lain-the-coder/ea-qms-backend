@@ -35,7 +35,7 @@ services:
         condition: service_healthy
 
   api:
-    image: 20dumpling/ea-qms-backend:1.1.0
+    image: 20dumpling/ea-qms-backend:1.2.0
     container_name: qms-api
     restart: unless-stopped
     ports:
