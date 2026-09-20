@@ -183,7 +183,7 @@ resolves to the right variant automatically. The build cross-compiles with
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t 20dumpling/ea-qms-backend:1.2.1 --push .
+  -t 20dumpling/ea-qms-backend:1.2.2 --push .
 ```
 
 The multi-stage build compiles a static Linux binary (CGO_ENABLED=0) stripped of DWARF symbols (-ldflags="-w -s"), packing the runtime onto alpine:latest for a minimal 7 MB image footprint.

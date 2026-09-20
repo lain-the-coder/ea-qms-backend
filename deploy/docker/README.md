@@ -236,7 +236,7 @@ docker compose up -d
 
 ```bash
 docker compose down -v
-docker rmi 20dumpling/ea-qms-backend:1.2.1 postgres:16-alpine gomicro/goose:latest
+docker rmi 20dumpling/ea-qms-backend:1.2.2 postgres:16-alpine gomicro/goose:latest
 ```
 
 Then delete the folder. Nothing was installed outside Docker.

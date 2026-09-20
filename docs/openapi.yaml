@@ -23,9 +23,10 @@ info:
       the date portion for display; send the same format back.
     - **Optional fields are `null`, never absent.** No field is omitted from a
       response.
-    - **To clear a field, send `null`.** For text fields an empty string `""` is
-      also accepted and normalised to `null`. For date and time fields `""` is a
-      parse error — only `null` clears them.
+    - **To clear a field, send `null`.** For text and enum fields an empty
+      string `""` is also accepted and normalised to `null`. For date and time
+      fields, and for `assigned_approver_id`, `""` is a parse error — only
+      `null` clears them.
     - **Business rules are validated at transitions, not at save.** A draft may
       hold incomplete or not-yet-valid data.
 
@@ -291,11 +292,15 @@ components:
         user is CC Owner or assigned Approver on active records.
         **The request is all-or-nothing** — a name change submitted alongside a
         blocked role change is also rejected.
+
+        The message differs by endpoint: `Cannot update role of a user with
+        active CCs` from `PUT /users/{userID}`, and `Cannot deactivate a user
+        with active CCs` from `.../active`.
       required: [error, blocked_cc_ids]
       properties:
         error:
           type: string
-          example: Cannot change role while the user has active change controls
+          example: Cannot update role of a user with active CCs
         blocked_cc_ids:
           type: array
           items:
@@ -418,8 +423,16 @@ components:
       type: object
       required: [full_name, email, password, role]
       properties:
-        full_name: { type: string, maxLength: 100 }
-        email: { type: string, format: email }
+        full_name:
+          type: string
+          description: Trimmed. No length limit — the column is `TEXT`.
+        email:
+          type: string
+          description: |
+            Trimmed and checked for blank ONLY — the handler does not validate
+            the format, so any non-blank string is accepted. Stored as sent
+            (not lower-cased). Uniqueness is case-insensitive: `uq_users_email`
+            is on `LOWER(email)`, so `Jane@x` and `jane@x` collide (409).
         password:
           type: string
           format: password
@@ -439,7 +452,9 @@ components:
         Both fields optional, but at least one must be present. **All-or-nothing**:
         if the role change is blocked, the name change is not saved either.
       properties:
-        full_name: { type: string, maxLength: 100 }
+        full_name:
+          type: string
+          description: Trimmed. No length limit — the column is `TEXT`.
         role: { $ref: "#/components/schemas/Role" }
 
     SetUserActiveRequest:
@@ -722,7 +737,7 @@ components:
         | key absent | unchanged |
         | `"field": null` | cleared |
         | `"field": "value"` | set |
-        | `"field": ""` | cleared (text fields only — a parse error on dates) |
+        | `"field": ""` | cleared (text and enum fields only — a parse error on the four dates and times and on `assigned_approver_id`) |
 
         Only the 24 fields below are accepted. **Any other key returns 400**
         listing every offending key, and nothing is written.
@@ -818,10 +833,18 @@ components:
       description: |
         Required by every transition. **The email must match the logged-in user**
         (BR-8.8.3) — signing on behalf of someone else is rejected even with
-        valid credentials. Comparison is case-insensitive.
+        valid credentials. Comparison is case-insensitive. The email is trimmed;
+        **the password is not**.
 
-        A failed signature returns 401, writes a `SignatureFailed` audit row, and
-        **leaves the record untouched** — safe to retry.
+        A rejected signature (wrong email or wrong password) returns 401
+        `Invalid credentials`, writes a `SignatureFailed` audit row, and **leaves
+        the record untouched** — safe to retry. A password-verification *error*,
+        as opposed to a mismatch, is a **500 with no `SignatureFailed` row**, so a
+        500 from a transition is not a signature failure.
+
+        Blank `email` or `password` is a plain 400 (`Email cannot be blank`,
+        `Password cannot be blank`), checked before the record is read — so it
+        precedes the 404, 403 and 409.
       required: [email, password]
       properties:
         email: { type: string, format: email }
@@ -842,7 +865,10 @@ components:
             cancellation_reason:
               type: string
               maxLength: 500
-              description: Mandatory, not whitespace-only. Permanently read-only once saved.
+              description: |
+                Mandatory, not whitespace-only. The limit is 500 runes **after
+                trimming**, so a longer value padded with whitespace is accepted.
+                Stored trimmed. Permanently read-only once saved.
 
     DecisionRequest:
       allOf:
@@ -885,16 +911,6 @@ components:
         signatures:
           type: array
           items: { $ref: "#/components/schemas/SignatureItem" }
-
-    # ---------- files ----------
-
-    FileUploadResponse:
-      type: object
-      properties:
-        file_name: { type: string }
-        file_size: { type: integer, format: int64 }
-        content_type: { type: string, example: application/pdf }
-        uploaded_on: { type: string, format: date-time }
 
     # ---------- dashboard ----------
 
@@ -964,7 +980,20 @@ components:
 
   responses:
     Unauthorized:
-      description: Missing, malformed or expired access token.
+      description: |
+        `middlewareAuth` rejected the request. It sends **exactly two**
+        messages, and a client must branch on which one it gets. The status
+        alone does not say whether the token is the problem.
+
+        | `error` | Cause | Client |
+        |---|---|---|
+        | `Unauthorized` | Access token missing, malformed or expired, or its user no longer exists | Refresh once, then retry once |
+        | `Account is deactivated` | The user's `is_active` is false. It is re-checked on every request, so this applies immediately | End the session. A refresh would return the same |
+
+        The five signed transitions can also return 401 `Invalid credentials`
+        for a failed e-signature. That is the handler's own verdict, not a
+        token failure. **Never retry it automatically**, because each attempt
+        writes its own `SignatureFailed` audit row.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1055,7 +1084,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401":
           description: |
-            **Three distinct causes, and the message says which.** All three end
+            **Four distinct causes, and the message says which.** All four end
             the session, but only the first two are worth offering a sign-in for.
 
             | `error` | Cause |
@@ -1063,6 +1092,7 @@ paths:
             | `Invalid refresh token` | Not found, or already revoked |
             | `Session expired` | 24 h absolute reached, **or** 2 h idle |
             | `Account is deactivated` | The user's `is_active` is false |
+            | `Unauthorized` | The token's user no longer exists. Not reachable through this API, which has no delete-user endpoint |
 
             `is_active` is re-checked here and on every authenticated request, so
             a deactivated user is stopped immediately rather than at access-token
@@ -1119,7 +1149,11 @@ paths:
     get:
       tags: [Users]
       summary: List users
-      description: Admin only. Sorted by full name.
+      description: |
+        Admin only. Sorted by full name, ascending, with **no tie-breaker**
+        (`ORDER BY full_name`), so two users with the same name can swap
+        places between requests, and across a page boundary one may appear on
+        both pages or on neither.
       parameters:
         - $ref: "#/components/parameters/limit"
         - $ref: "#/components/parameters/offset"
@@ -1130,6 +1164,10 @@ paths:
             but the query parameter is not — the handler reads `active`, and an
             unrecognised parameter is ignored silently, so `?is_active=true`
             returns every user with no error. Omit for all users.
+
+            Parsed with Go's `strconv.ParseBool`, so `1`, `t`, `T`, `TRUE`,
+            `true`, `True` (and the false forms) are all accepted. Anything
+            else is 400 `Invalid Query Parameter for Active`.
           schema: { type: boolean }
       responses:
         "200":
@@ -1137,7 +1175,15 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/UserListResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
+        "400":
+          description: |
+            `invalid limit: must be a positive integer`, `invalid offset: must
+            be a non-negative integer` (checked first), or `Invalid Query
+            Parameter for Active`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+              example: { error: Invalid Query Parameter for Active }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "500": { $ref: "#/components/responses/ServerError" }
@@ -1158,12 +1204,23 @@ paths:
               schema: { $ref: "#/components/schemas/UserResponse" }
         "400":
           description: |
-            Validation failed. Password rules are returned together, not one at a time.
+            A plain `ErrorResponse`, no `issues`. The handler stops at the FIRST
+            failure, in this order:
+
+            - `Invalid request body`
+            - `Full Name cannot be blank` · `Email cannot be blank` (both
+              trimmed first)
+            - `Password cannot be blank` (never trimmed)
+            - the password policy: every unmet rule, joined into ONE sentence
+              (see the example)
+            - `Role cannot be blank`, then `Invalid Role`
+
+            The email's FORMAT is not checked: any non-blank string is accepted.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
               example:
-                error: "Password must be at least 8 characters; Password must contain at least one uppercase letter"
+                error: "Password must contain at least 8 characters, at least 1 uppercase letter"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
@@ -1199,14 +1256,18 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/UserStatusResponse" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403":
-          description: Not an Admin, or attempting to change one's own role.
+        "400":
+          description: |
+            Malformed body, an invalid user ID, blank or invalid values, or an
+            attempt to change one's own role. The self-role check fires only
+            when the requested role differs from the current one, so sending
+            your own current role is a 200 no-op, not an error.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-              example: { error: You cannot change your own role }
+              example: { error: Self Role Change is not allowed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           description: Blocked by active change controls.
@@ -1240,11 +1301,13 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserStatusResponse" }
         "400":
-          description: Attempting to deactivate oneself.
+          description: |
+            Attempting to deactivate oneself, a malformed body, a missing
+            `is_active`, or an invalid user ID.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
-              example: { error: You cannot deactivate your own account }
+              example: { error: Self Deactivation is not allowed }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -1508,10 +1571,21 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ChangeControlResponse" }
         "400":
-          description: Mandatory fields missing and/or date rules failed — all collected.
+          description: |
+            Two shapes.
+
+            - **`ErrorResponse`**, checked before the record is read, so before
+              the 404, 403 and 409: `CC-ID cannot be blank`, `Invalid request
+              body`, `Email cannot be blank`, `Password cannot be blank`.
+            - **`ValidationErrorResponse`**, against the stored record: missing
+              mandatory fields (bare labels) and failed date rules (full
+              sentences), all collected in one `issues` array, labels first.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ValidationErrorResponse" }
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
               example:
                 error: "Cannot submit: some requirements are not met"
                 issues:
@@ -1564,7 +1638,12 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ChangeControlResponse" }
         "400":
-          description: Reason missing, whitespace-only, or over 500 characters.
+          description: |
+            The first failing check, in this order: a blank CC-ID, a malformed body
+            (`Invalid request body`), a reason that is missing or whitespace-only,
+            a blank email, a blank password, then a reason over 500 runes after
+            trimming. All run
+            before the record is read, so they precede the 404, 403 and 409.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1659,7 +1738,7 @@ paths:
         - `actual_implementation_date` **must not be in the future**
         - **An evidence file must exist**, or submission is blocked
 
-        All four failures collect into one response.
+        Every failure collects into one response.
 
         On success `final_approval_status` → `Pending`. The record's fields and
         its evidence file are then **locked** — the save and upload endpoints
@@ -1677,10 +1756,21 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ChangeControlResponse" }
         "400":
-          description: Mandatory fields missing, a future date, and/or no evidence file.
+          description: |
+            Two shapes, as for T2.
+
+            - **`ErrorResponse`**, checked before the record is read, so before
+              the 404, 403 and 409: `CC-ID cannot be blank`, `Invalid request
+              body`, `Email cannot be blank`, `Password cannot be blank`.
+            - **`ValidationErrorResponse`**, against the stored record: missing
+              evidence, missing mandatory fields and a future date, all
+              collected.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ValidationErrorResponse" }
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
               example:
                 error: "Cannot submit: some requirements are not met"
                 issues:
@@ -1767,15 +1857,31 @@ paths:
         Do **not** set `Content-Type` by hand — the browser generates it with the
         boundary, and overriding it breaks parsing.
 
-        **PDF only, 10 MB maximum.** The type is verified by inspecting the
-        file's contents, not the extension or the declared content type, so a
-        renamed PNG is rejected.
+        **PDF only, 10 MB maximum** (10 × 1024 × 1024 bytes). **Two checks, both
+        required:** the filename must end in `.pdf` (any case), and the file's
+        first bytes must be `%PDF-`. So a renamed PNG is rejected, and so is a
+        genuine PDF named `report` or `report.txt`. Both failures return the same
+        sentence. The declared part `Content-Type` is ignored; the stored
+        `content_type` is always `application/pdf`.
 
         **One file per field — re-uploading replaces it.** There is no delete
         endpoint; upload a different file to change it.
 
-        The filename is sanitised before storage: path components stripped,
-        control characters and quotes removed, capped at 255 characters.
+        **The stored filename may differ from the one sent**, and the response
+        carries the stored one. In order: `\` becomes `/` and any directory is
+        stripped; control characters (U+0000–U+001F and U+007F only), `"`, `'`,
+        `` ` `` and `;` are removed; surrounding whitespace is trimmed; an empty
+        result, `.` or a bare `.pdf` becomes `evidence.pdf`; and a name over 255
+        **runes** is cut, keeping its extension. Other non-ASCII characters are
+        kept.
+
+        **Side effects:** the record's `last_updated_on` and
+        `last_updated_by_id` move on every upload. No audit row is written;
+        `uploaded_by_id` and `uploaded_on` on the attachment are the trail.
+
+        **Every 400 is checked before the transaction**, so it precedes the 404,
+        403 and 409: a bad file sent to a record that has left
+        `In Implementation`, or by a non-owner, gets the 400.
       parameters:
         - $ref: "#/components/parameters/ccID"
         - $ref: "#/components/parameters/fieldName"
@@ -1796,13 +1902,34 @@ paths:
           description: |
             Uploaded. **200, not 201** — the endpoint cannot tell whether it
             created or replaced.
+
+            Returns the **full change control**, re-read inside the transaction
+            through the same query `GET /changecontrols/{ccID}` uses, so
+            `implementation_evidence` already carries the file just stored.
+            Use it as the record, as after a save or a transition — do not
+            refetch.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/FileUploadResponse" }
+              schema: { $ref: "#/components/schemas/ChangeControlResponse" }
         "400":
           description: |
-            Not a PDF, over 10 MB, empty, missing the `file` part, not multipart,
-            or an unsupported `fieldName`.
+            In the handler's order, before the transaction:
+
+            | Cause | `error` |
+            |---|---|
+            | Request body over 11 MB | `File exceeds maximum allowed size of 10 MB` |
+            | Blank CC-ID | `CC-ID cannot be blank` |
+            | `fieldName` not `implementation_evidence` | `Field name in path parameter is not one of accepted values` |
+            | Not multipart | `Invalid multipart form payload` |
+            | No `file` part, or a part with an empty filename | `Missing file payload in request` |
+            | File over 10 MB | `File must be 10 MB or smaller` |
+            | Filename not ending in `.pdf` | `Only PDF files are accepted` |
+            | Empty file | `File payload cannot be empty` |
+            | Bytes not starting with `%PDF-` | `Only PDF files are accepted` |
+
+            The body limit is checked while the request is read, and the server
+            then closes the connection, so a client still sending may see a
+            network error rather than this 400.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1847,11 +1974,22 @@ paths:
 
         ⚠️ **This cannot be a plain `<a href>`.** The endpoint requires the bearer
         token and a link cannot send headers. Use `fetch()` → `.blob()` →
-        `URL.createObjectURL()` → synthesise a click. The `try/catch` also covers
-        truncation, which the browser detects via `Content-Length`.
+        `URL.createObjectURL()` → synthesise a click. **Branch on the status
+        before reading the body:** every error is a JSON `ErrorResponse`, and
+        `.blob()` would read one as the file. Wrap the read in a `try/catch`:
+        it rejects on truncation, which the browser detects via
+        `Content-Length`.
+
+        **The filename is written raw, with no `filename*`.** A browser client
+        reading this header gets any non-ASCII name garbled, because header
+        values are exposed one byte per character. Prefer
+        `implementation_evidence.file_name` from the CC response, which is the
+        same stored name.
 
         Use the `implementation_evidence` object on the CC response to decide
         whether to offer the download — do not probe this endpoint.
+
+        Read-only: no audit row, and `last_updated_on` does not move.
       parameters:
         - $ref: "#/components/parameters/ccID"
         - $ref: "#/components/parameters/fieldName"
@@ -1868,7 +2006,13 @@ paths:
             application/pdf:
               schema: { type: string, format: binary }
         "400":
-          description: Unsupported `fieldName`.
+          description: |
+            In the handler's order, both before any lookup:
+
+            | Message | Cause |
+            |---|---|
+            | `CC-ID cannot be blank` | the `ccID` path segment is blank after trimming, e.g. `%20` |
+            | `Field name in path parameter is not one of accepted values` | `fieldName` is not `implementation_evidence` |
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1876,7 +2020,8 @@ paths:
         "404":
           description: |
             Either the change control does not exist, or it has no file. The two
-            are distinguished by the message.
+            are distinguished by the message, and the change control is looked
+            up first.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -1947,8 +2092,10 @@ paths:
 
         **Oldest first**, uncapped: a complete history is never truncated.
 
-        An empty array is a legitimate answer — a record in `Initiated` has no
-        signatures, since T1 requires none. Only an unknown CC-ID returns 404.
+        An empty array is a legitimate answer — a record that has never been
+        submitted has no signatures, since T1 requires none. Not every record in
+        `Initiated`: T5 returns a record there carrying its T2 and T5 signatures.
+        Only an unknown CC-ID returns 404.
 
         `signer_name` is the snapshot taken at signing, so renaming a user does
         not rewrite their past signatures.
