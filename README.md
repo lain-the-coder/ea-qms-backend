@@ -69,7 +69,7 @@ T1 — creating the record — does not.
 | **Migrations** | [goose](https://github.com/pressly/goose)                                     |
 | **Auth**       | argon2id password hashing, JWT access tokens, opaque refresh tokens           |
 | **Logging**    | `log/slog`, structured JSON, one request ID and instance ID per request       |
-| **Deployment** | Docker multi-stage Alpine image (~24MB), Docker Compose                       |
+| **Deployment** | Docker multi-stage Alpine image (~7MB), Docker Compose                       |
 
 No ORM, no service layer, no repository layer. A handler talks to sqlc, which
 talks to Postgres.
@@ -177,7 +177,16 @@ Build locally:
 docker build -t 20dumpling/ea-qms-backend:latest .
 ```
 
-The multi-stage build compiles a static Linux binary (CGO_ENABLED=0) stripped of DWARF symbols (-ldflags="-w -s"), packing the runtime onto alpine:latest for a minimal 24 MB image footprint.
+Published for `linux/amd64` and `linux/arm64` under one tag, so `docker pull`
+resolves to the right variant automatically. The build cross-compiles with
+`GOARCH=$TARGETARCH`, which costs nothing in Go:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t 20dumpling/ea-qms-backend:1.2.1 --push .
+```
+
+The multi-stage build compiles a static Linux binary (CGO_ENABLED=0) stripped of DWARF symbols (-ldflags="-w -s"), packing the runtime onto alpine:latest for a minimal 7 MB image footprint.
 
 A dedicated health check (GET /api/healthz) performs an active rawDB.PingContext() check for orchestrator readiness and liveness verification without polluting route logs.
 
@@ -188,7 +197,7 @@ If you want to spin up the entire backend stack (API, PostgreSQL, schema migrati
 1. Navigate to the Docker deployment directory:
 
 ```bash
-   cd deploy/docker
+cd deploy/docker
 ```
 
 2. Follow the setup instructions in [`deploy/docker/README.md`](deploy/docker/README.md) to start the containers via `docker compose up -d`.
@@ -209,8 +218,10 @@ If you want to spin up the entire backend stack (API, PostgreSQL, schema migrati
 
 Every shape, enum value and status code is in
 [`docs/openapi.yaml`](docs/openapi.yaml), which is hand-written from the handler
-code rather than generated from example traffic. A Postman collection is in
-[`postman/`](postman/).
+code rather than generated from example traffic. Building the frontend against it
+found 32 corrections — a wrong status code, invented error messages, missing
+failure cases, and constraints the handlers do not enforce — each fixed and
+recorded. A Postman collection is in [`postman/`](postman/).
 
 ## Design notes
 
@@ -321,7 +332,9 @@ rather than implying coverage that does not exist.
 
 ## Status and scope
 
-All 23 endpoints are built and verified. The frontend has not started.
+All 23 endpoints are built and verified. **The frontend is complete** — see
+[ea-qms-frontend](https://github.com/lain-the-coder/ea-qms-frontend), built
+against this API in 18 verified steps.
 
 Deliberately out of scope for this release, and recorded as such in the
 requirements: password reset and change, self-service profile editing, email
